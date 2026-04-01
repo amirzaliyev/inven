@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import CheckConstraint, Date, ForeignKey, Integer, func
+from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Integer, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import BaseModel
@@ -17,6 +17,9 @@ class Batch(BaseModel):
         ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    is_confirmed: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("'FALSE'")
+    )
 
     created_by_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True

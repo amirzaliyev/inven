@@ -116,7 +116,7 @@ class BaseModelService(Generic[ModelT]):
 
     async def _update(self, obj: ModelT, modified_data: dict[str, Any]) -> ModelT:
         try:
-            for key, value in modified_data:
+            for key, value in modified_data.items():
                 setattr(obj, key, value)
 
             await self._commit_or_flush()

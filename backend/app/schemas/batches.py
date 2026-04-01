@@ -11,6 +11,7 @@ class Batch(BaseModel):
     batch_date: date
     product_id: int
     quantity: int
+    is_confirmed: bool
     created_by_id: int | None = None
     updated_by_id: int | None = None
     created_at: datetime

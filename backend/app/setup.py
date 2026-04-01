@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 async def setup_master_admin(session: AsyncSession):
-    logger.info("Creating master admin.")
+    logger.info("Creating master admin")
     existing = (
         await session.scalars(
             select(User).where(User.username == settings.master_admin_username)
@@ -31,4 +31,4 @@ async def setup_master_admin(session: AsyncSession):
 
     session.add(user)
     await session.commit()
-    logger.info("Master admin created successfully.")
+    logger.info("Master admin created successfully")

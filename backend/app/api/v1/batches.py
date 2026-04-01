@@ -34,7 +34,7 @@ async def list_batches(
     )
 
 
-@router.put("/{batch_id}")
+@router.put("/{batch_id}", response_model=Batch)
 async def update_batch(
     batch_id: int,
     data: BatchUpdate,
@@ -42,3 +42,12 @@ async def update_batch(
     service: BatchService = Depends(get_batch_service),
 ):
     return await service.update(id=batch_id, data=data, user=current_user)
+
+
+@router.patch("/{batch_id}", response_model=Batch)
+async def confirm_batch(
+    batch_id: int,
+    current_user: UserContext = Depends(get_current_user),
+    service: BatchService = Depends(get_batch_service),
+):
+    return await service.confirm(batch_id=batch_id, user=current_user)

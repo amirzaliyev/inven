@@ -1,15 +1,29 @@
+import math
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 
 class Product(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     sku_code: str
 
     created_at: datetime
     update_at: datetime
+
+
+class ProductList(BaseModel):
+    items: list[Product]
+    total: int
+    page: int
+    size: int
+
+    @computed_field
+    def pages(self) -> int:
+        return math.ceil(self.total / self.size)
 
 
 class ProductCreate(BaseModel):

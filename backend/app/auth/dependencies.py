@@ -1,8 +1,9 @@
-from fastapi import Depends
+from fastapi import Cookie, Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from app.auth.jwt import verify_access_token
-from app.schemas.auth import TokenClaims, UserContext
+from app.auth.jwt import verify_access_token, verify_refresh_token
+from app.schemas.auth import RefreshTokenClaims, TokenClaims, UserContext
+from app.services.exceptions import UnAuthorized
 from app.services.users import UserService
 from app.svc_dependencies import get_user_service
 
@@ -14,8 +15,18 @@ __all__ = ["get_token_claims", "get_current_user"]
 def get_token_claims(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> TokenClaims:
-    claims = verify_access_token(credentials.credentials)
-    return TokenClaims.model_validate(claims)
+    return verify_access_token(credentials.credentials)
+
+
+def get_refresh_token_claims(request: Request) -> RefreshTokenClaims:
+    refresh_token = request.cookies.get("refresh_token")
+
+    if not refresh_token:
+        raise UnAuthorized(
+            code="refresh_token_not_found", message="Refresh token not found in cookies"
+        )
+
+    return verify_refresh_token(token=refresh_token)
 
 
 async def get_current_user(

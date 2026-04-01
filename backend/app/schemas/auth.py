@@ -7,12 +7,13 @@ class TokenClaims(BaseModel):
     username: str
     permissions: list[str]
 
-    token_type: str
+
+class RefreshTokenClaims(BaseModel):
+    sub: int
 
 
 class TokenResponse(BaseModel):
     access_token: str
-    refresh_token: str
     token_type: str = "Bearer"
     access_token_expires_in: int
 

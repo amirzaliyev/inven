@@ -15,7 +15,7 @@ class UnAuthorized(DomainError):
     """When user is unauthorized"""
 
 
-class PermissionDenied(DomainError):
+class Forbidden(DomainError):
     """When user does not have sufficient permissions."""
 
 

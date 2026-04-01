@@ -3,6 +3,7 @@ import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.v1 import v1_routers
@@ -11,6 +12,7 @@ from app.core.db import async_session_maker
 from app.services.exceptions import (
     Conflict,
     DomainError,
+    Forbidden,
     ResourceNotFound,
     UnAuthorized,
 )
@@ -28,7 +30,7 @@ async def lifespan(app: FastAPI):
 logging.basicConfig(
     level=logging.INFO,
     stream=sys.stdout,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format="%(levelname)s:     %(message)s - %(name)s - %(asctime)s",
 )
 app = FastAPI(
     lifespan=lifespan,
@@ -39,6 +41,13 @@ app = FastAPI(
         "persistAuthorization": settings.debug,
         "docExpansion": "none",
     },
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 app.include_router(v1_routers, prefix="/v1")
 
@@ -63,6 +72,14 @@ async def handle_unauthorized(request: Request, exc: UnAuthorized):
 async def handle_conflict(request: Request, exc: Conflict):
     return JSONResponse(
         status_code=status.HTTP_409_CONFLICT,
+        content={"code": exc.code, "message": exc.message},
+    )
+
+
+@app.exception_handler(Forbidden)
+async def handle_forbidden_exc(request: Request, exc: Forbidden):
+    return JSONResponse(
+        status_code=status.HTTP_403_FORBIDDEN,
         content={"code": exc.code, "message": exc.message},
     )
 
