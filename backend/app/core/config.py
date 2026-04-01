@@ -7,6 +7,8 @@ class Settings(BaseSettings):
 
     # application
     debug: bool = True
+    master_admin_username: str
+    master_admin_password: str
 
     # database
     database_url: PostgresDsn
@@ -17,6 +19,8 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 60
     jwt_refresh_token_expire_days: int = 7
     jwt_algorithm: str = "HS256"
+    jwt_issuer: str = ""
+    jwt_audience: str = ""
 
 
 settings = Settings()  # pyright: ignore[reportCallIssue]

@@ -11,9 +11,17 @@ class DomainError(Exception):
         self.message = message
 
 
-class InvalidCredentials(DomainError):
-    """When user provides invalid credentials."""
+class UnAuthorized(DomainError):
+    """When user is unauthorized"""
 
 
 class PermissionDenied(DomainError):
     """When user does not have sufficient permissions."""
+
+
+class ResourceNotFound(DomainError):
+    """When resource not found."""
+
+
+class Conflict(DomainError):
+    """When conflict happens"""

@@ -1,9 +1,31 @@
-from datetime import datetime
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 
 class TokenClaims(BaseModel):
     sub: int
-    email: EmailStr
+    display_name: str
+    username: str
+    permissions: list[str]
 
-    expires_at: datetime
+    token_type: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "Bearer"
+    access_token_expires_in: int
+
+
+class UserCredentials(BaseModel):
+    username: str
+    password: str
+
+
+class UserContext(BaseModel):
+    id: int
+    display_name: str
+    username: str
+    email: str | None = None
+    phone_number: str | None = None
+    permissions: list[str]

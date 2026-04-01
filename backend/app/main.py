@@ -1,35 +1,75 @@
+import logging
+import sys
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, status
+
+from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
+from app.api.v1 import v1_routers
 from app.core.config import settings
-from app.services.exceptions import DomainError, InvalidCredentials
+from app.core.db import async_session_maker
+from app.services.exceptions import (
+    Conflict,
+    DomainError,
+    ResourceNotFound,
+    UnAuthorized,
+)
+from app.setup import setup_master_admin
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    async with async_session_maker() as session:
+        await setup_master_admin(session=session)
+
     yield
 
 
+logging.basicConfig(
+    level=logging.INFO,
+    stream=sys.stdout,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 app = FastAPI(
     lifespan=lifespan,
-    docs_url=None if settings.debug else "/docs",
-    redoc_url=None,
+    docs_url="/docs" if settings.debug else None,
+    redoc_url="/redoc" if settings.debug else None,
     title="Inven",
+    swagger_ui_parameters={
+        "persistAuthorization": settings.debug,
+        "docExpansion": "none",
+    },
 )
+app.include_router(v1_routers, prefix="/v1")
 
 
-@app.exception_handler(InvalidCredentials)
-async def handle_invalid_credentials_exc(exc: InvalidCredentials):
+@app.exception_handler(ResourceNotFound)
+async def handle_resource_not_found(request: Request, exc: ResourceNotFound):
+    return JSONResponse(
+        status_code=status.HTTP_404_NOT_FOUND,
+        content={"code": exc.code, "message": exc.message},
+    )
+
+
+@app.exception_handler(UnAuthorized)
+async def handle_unauthorized(request: Request, exc: UnAuthorized):
     return JSONResponse(
         status_code=status.HTTP_401_UNAUTHORIZED,
         content={"code": exc.code, "message": exc.message},
     )
 
 
+@app.exception_handler(Conflict)
+async def handle_conflict(request: Request, exc: Conflict):
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT,
+        content={"code": exc.code, "message": exc.message},
+    )
+
+
 @app.exception_handler(DomainError)
-async def handle_domain_errors(exc: DomainError):
+async def handle_domain_errors(request: Request, exc: DomainError):
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"code": exc.code, "message": exc.message},
+        content={"code": "internal_server_error", "message": "Internal server error."},
     )
