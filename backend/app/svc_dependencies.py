@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import get_async_session
 from app.services.auth import AuthService
 from app.services.batches import BatchService
+from app.services.customers import CustomerService
 from app.services.inventory_transactions import InventoryTransactionService
 from app.services.products import ProductService
 from app.services.users import UserService
@@ -35,3 +36,9 @@ def get_batch_service(
     inv_txn_svc: InventoryTransactionService = Depends(get_inv_transaction_svc),
 ) -> BatchService:
     return BatchService(session=session, inventory_transactions=inv_txn_svc)
+
+
+def get_customer_service(
+    session: AsyncSession = Depends(get_async_session),
+) -> CustomerService:
+    return CustomerService(session=session)

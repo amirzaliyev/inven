@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Response, status
 
-from app.auth.dependencies import get_refresh_token_claims
+from app.auth.dependencies import get_current_user, get_refresh_token_claims
 from app.auth.jwt import create_access_token, create_refresh_token
 from app.core.config import settings
 from app.schemas.auth import (
     RefreshTokenClaims,
     TokenResponse,
+    UserContext,
     UserCredentials,
 )
 from app.services.auth import AuthService
@@ -45,3 +46,10 @@ async def refresh_token(
 ):
     tokens = await service.refresh_token(claims=claims)
     return tokens
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(
+    response: Response, current_user: UserContext = Depends(get_current_user)
+):
+    response.delete_cookie(key="refresh_token", httponly=True)

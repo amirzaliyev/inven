@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { confirmBatch, createBatch, listBatches, updateBatch } from "../api/batches";
 import { listProducts } from "../api/products";
 import type { Batch, BatchCreate, BatchUpdate, Product } from "../types";
@@ -41,7 +42,6 @@ const S = {
     boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
   } as React.CSSProperties,
 
-  // Form
   form: {
     display: "flex",
     gap: 12,
@@ -77,7 +77,6 @@ const S = {
     transition: "border-color 0.15s",
   } as React.CSSProperties,
 
-  // Buttons
   btnPrimary: {
     padding: "7px 18px",
     fontSize: 14,
@@ -125,7 +124,6 @@ const S = {
     cursor: "pointer",
   } as React.CSSProperties,
 
-  // Table
   tableWrapper: {
     overflowX: "auto" as const,
   } as React.CSSProperties,
@@ -172,7 +170,6 @@ const S = {
     textTransform: "uppercase",
   }),
 
-  // Inline edit input
   inlineInput: {
     padding: "4px 8px",
     fontSize: 14,
@@ -184,7 +181,6 @@ const S = {
     boxSizing: "border-box" as const,
   } as React.CSSProperties,
 
-  // Pagination
   pagination: {
     display: "flex",
     alignItems: "center",
@@ -198,7 +194,6 @@ const S = {
     color: "#6b7280",
   } as React.CSSProperties,
 
-  // Feedback banners
   banner: (type: "success" | "error"): React.CSSProperties => ({
     padding: "10px 16px",
     borderRadius: 8,
@@ -254,25 +249,22 @@ const EMPTY_FORM: BatchCreate = {
 // Component
 // ---------------------------------------------------------------------------
 export default function BatchesPage() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const page = Number(searchParams.get("page")) || 1;
   const pageSize = Number(searchParams.get("size")) || 10;
 
-  // List state
   const [batches, setBatches] = useState<Batch[]>([]);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
 
-  // Loading / feedback
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Create form
   const [form, setForm] = useState<BatchCreate>(EMPTY_FORM);
   const [creating, setCreating] = useState(false);
 
-  // Inline edit
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editState, setEditState] = useState<EditState>({
     batch_date: "",
@@ -281,13 +273,8 @@ export default function BatchesPage() {
   });
   const [saving, setSaving] = useState(false);
 
-  // Product list for dropdown
   const [products, setProducts] = useState<Product[]>([]);
-
-  // Confirm state
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
-
-  // Row hover tracking
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
 
   // -------------------------------------------------------------------------
@@ -301,11 +288,11 @@ export default function BatchesPage() {
       setTotalPages(result.pages);
       setTotal(result.total);
     } catch (err: unknown) {
-      showFeedback("error", extractMessage(err, "Failed to load batches."));
+      showFeedback("error", extractMessage(err, t("batches.loadError")));
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize]);
+  }, [page, pageSize, t]);
 
   useEffect(() => {
     fetchBatches();
@@ -326,11 +313,9 @@ export default function BatchesPage() {
       err &&
       typeof err === "object" &&
       "response" in err &&
-      (err as { response?: { data?: { detail?: unknown } } }).response?.data
-        ?.detail
+      (err as { response?: { data?: { detail?: unknown } } }).response?.data?.detail
     ) {
-      const detail = (err as { response: { data: { detail: unknown } } })
-        .response.data.detail;
+      const detail = (err as { response: { data: { detail: unknown } } }).response.data.detail;
       if (typeof detail === "string") return detail;
       if (Array.isArray(detail)) return detail.map((d) => d?.msg ?? String(d)).join("; ");
     }
@@ -344,17 +329,17 @@ export default function BatchesPage() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!form.product_id || form.quantity < 1) {
-      showFeedback("error", "Product ID and quantity (≥ 1) are required.");
+      showFeedback("error", t("batches.validationRequired"));
       return;
     }
     setCreating(true);
     try {
       await createBatch(form);
-      showFeedback("success", "Batch created successfully.");
+      showFeedback("success", t("batches.createSuccess"));
       setForm(EMPTY_FORM);
       await fetchBatches();
     } catch (err: unknown) {
-      showFeedback("error", extractMessage(err, "Failed to create batch."));
+      showFeedback("error", extractMessage(err, t("batches.createError")));
     } finally {
       setCreating(false);
     }
@@ -383,7 +368,7 @@ export default function BatchesPage() {
     if (editState.quantity) payload.quantity = Number(editState.quantity);
 
     if (payload.quantity !== undefined && payload.quantity < 1) {
-      showFeedback("error", "Quantity must be at least 1.");
+      showFeedback("error", t("batches.quantityMin"));
       return;
     }
 
@@ -392,9 +377,9 @@ export default function BatchesPage() {
       const updated = await updateBatch(batchId, payload);
       setBatches((prev) => prev.map((b) => (b.id === batchId ? updated : b)));
       setEditingId(null);
-      showFeedback("success", `Batch #${batchId} updated.`);
+      showFeedback("success", t("batches.updateSuccess", { id: batchId }));
     } catch (err: unknown) {
-      showFeedback("error", extractMessage(err, "Failed to update batch."));
+      showFeedback("error", extractMessage(err, t("batches.updateError")));
     } finally {
       setSaving(false);
     }
@@ -408,9 +393,9 @@ export default function BatchesPage() {
     try {
       const confirmed = await confirmBatch(batchId);
       setBatches((prev) => prev.map((b) => (b.id === batchId ? confirmed : b)));
-      showFeedback("success", `Batch #${batchId} confirmed.`);
+      showFeedback("success", t("batches.confirmSuccess", { id: batchId }));
     } catch (err: unknown) {
-      showFeedback("error", extractMessage(err, "Failed to confirm batch."));
+      showFeedback("error", extractMessage(err, t("batches.confirmError")));
     } finally {
       setConfirmingId(null);
     }
@@ -436,20 +421,16 @@ export default function BatchesPage() {
             type="date"
             style={S.inlineInput}
             value={editState.batch_date}
-            onChange={(e) =>
-              setEditState((s) => ({ ...s, batch_date: e.target.value }))
-            }
+            onChange={(e) => setEditState((s) => ({ ...s, batch_date: e.target.value }))}
           />
         </td>
         <td style={S.td}>
           <select
             style={{ ...S.inlineInput, width: 160 }}
             value={editState.product_id}
-            onChange={(e) =>
-              setEditState((s) => ({ ...s, product_id: e.target.value }))
-            }
+            onChange={(e) => setEditState((s) => ({ ...s, product_id: e.target.value }))}
           >
-            <option value="">Select a product</option>
+            <option value="">{t("common.selectProduct")}</option>
             {products.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name} ({p.sku_code})
@@ -463,27 +444,21 @@ export default function BatchesPage() {
             style={{ ...S.inlineInput, width: 90 }}
             value={editState.quantity}
             min={1}
-            onChange={(e) =>
-              setEditState((s) => ({ ...s, quantity: e.target.value }))
-            }
+            onChange={(e) => setEditState((s) => ({ ...s, quantity: e.target.value }))}
           />
         </td>
         <td style={S.td}>—</td>
         <td style={S.td}>
           <span style={S.badge(batch.is_confirmed)}>
-            {batch.is_confirmed ? "Confirmed" : "Pending"}
+            {batch.is_confirmed ? t("batches.confirmed") : t("batches.pending")}
           </span>
         </td>
         <td style={{ ...S.td, display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <button
-            style={S.btnSuccess}
-            onClick={() => saveEdit(batch.id)}
-            disabled={saving}
-          >
-            {saving ? "Saving…" : "Save"}
+          <button style={S.btnSuccess} onClick={() => saveEdit(batch.id)} disabled={saving}>
+            {saving ? t("common.saving") : t("common.save")}
           </button>
           <button style={S.btnDanger} onClick={cancelEdit} disabled={saving}>
-            Cancel
+            {t("common.cancel")}
           </button>
         </td>
       </tr>
@@ -516,21 +491,17 @@ export default function BatchesPage() {
         </td>
         <td style={S.td}>
           <span style={S.badge(batch.is_confirmed)}>
-            {batch.is_confirmed ? "Confirmed" : "Pending"}
+            {batch.is_confirmed ? t("batches.confirmed") : t("batches.pending")}
           </span>
         </td>
         <td style={S.td}>
           {canEdit && (
             <div style={{ display: "flex", gap: 6 }}>
               <button
-                style={{
-                  ...S.btnSecondary,
-                  opacity: isHovered ? 1 : 0.4,
-                  transition: "opacity 0.15s",
-                }}
+                style={{ ...S.btnSecondary, opacity: isHovered ? 1 : 0.4, transition: "opacity 0.15s" }}
                 onClick={() => startEdit(batch)}
               >
-                Edit
+                {t("common.edit")}
               </button>
               <button
                 style={{
@@ -543,7 +514,7 @@ export default function BatchesPage() {
                 onClick={() => handleConfirm(batch.id)}
                 disabled={confirmingId === batch.id}
               >
-                {confirmingId === batch.id ? "Confirming..." : "Confirm"}
+                {confirmingId === batch.id ? t("batches.confirming") : t("batches.confirm")}
               </button>
             </div>
           )}
@@ -557,37 +528,28 @@ export default function BatchesPage() {
   // -------------------------------------------------------------------------
   return (
     <div style={S.page}>
-      <h1 style={S.heading}>Batches</h1>
+      <h1 style={S.heading}>{t("batches.title")}</h1>
 
-      {/* Feedback banner */}
-      {feedback && (
-        <div style={S.banner(feedback.type)}>{feedback.message}</div>
-      )}
+      {feedback && <div style={S.banner(feedback.type)}>{feedback.message}</div>}
 
       {/* Create form */}
       <div style={S.card}>
-        <p style={S.sectionTitle}>New Batch</p>
+        <p style={S.sectionTitle}>{t("batches.newBatch")}</p>
         <form onSubmit={handleCreate} style={S.form}>
           <div style={S.fieldGroup}>
-            <label style={S.label} htmlFor="batch_date">
-              Batch Date
-            </label>
+            <label style={S.label} htmlFor="batch_date">{t("batches.batchDate")}</label>
             <input
               id="batch_date"
               type="date"
               style={S.input}
               value={form.batch_date}
               required
-              onChange={(e) =>
-                setForm((f) => ({ ...f, batch_date: e.target.value }))
-              }
+              onChange={(e) => setForm((f) => ({ ...f, batch_date: e.target.value }))}
             />
           </div>
 
           <div style={S.fieldGroup}>
-            <label style={S.label} htmlFor="product_id">
-              Product
-            </label>
+            <label style={S.label} htmlFor="product_id">{t("common.product")}</label>
             <select
               id="product_id"
               style={S.input}
@@ -600,7 +562,7 @@ export default function BatchesPage() {
                 }))
               }
             >
-              <option value="">Select a product</option>
+              <option value="">{t("common.selectProduct")}</option>
               {products.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name} ({p.sku_code})
@@ -610,9 +572,7 @@ export default function BatchesPage() {
           </div>
 
           <div style={S.fieldGroup}>
-            <label style={S.label} htmlFor="quantity">
-              Quantity
-            </label>
+            <label style={S.label} htmlFor="quantity">{t("common.quantity")}</label>
             <input
               id="quantity"
               type="number"
@@ -620,44 +580,33 @@ export default function BatchesPage() {
               value={form.quantity}
               min={1}
               required
-              onChange={(e) =>
-                setForm((f) => ({ ...f, quantity: Number(e.target.value) }))
-              }
+              onChange={(e) => setForm((f) => ({ ...f, quantity: Number(e.target.value) }))}
             />
           </div>
 
           <button type="submit" style={S.btnPrimary} disabled={creating}>
-            {creating ? "Creating…" : "Create Batch"}
+            {creating ? t("batches.creating") : t("batches.create")}
           </button>
         </form>
       </div>
 
       {/* Table */}
       <div style={S.card}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 12,
-          }}
-        >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <p style={{ ...S.sectionTitle, marginBottom: 0 }}>
-            Batch List{" "}
+            {t("batches.listTitle")}{" "}
             {!loading && (
-              <span
-                style={{ color: "#9ca3af", fontSize: 12, fontWeight: 400, textTransform: "none", letterSpacing: 0 }}
-              >
-                ({total} total)
+              <span style={{ color: "#9ca3af", fontSize: 12, fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>
+                {t("batches.totalCount", { total })}
               </span>
             )}
           </p>
           <button
             style={{ ...S.btnSecondary, fontSize: 12 }}
-            onClick={() => fetchBatches(page)}
+            onClick={() => fetchBatches()}
             disabled={loading}
           >
-            {loading ? "Loading…" : "Refresh"}
+            {loading ? t("common.loading") : t("common.refresh")}
           </button>
         </div>
 
@@ -665,39 +614,35 @@ export default function BatchesPage() {
           <table style={S.table}>
             <thead>
               <tr>
-                {["ID", "Batch Date", "Product", "Quantity", "Created At", "Status", ""].map(
-                  (col) => (
-                    <th key={col} style={S.th}>
-                      {col}
-                    </th>
-                  )
-                )}
+                {[
+                  t("common.id"),
+                  t("batches.batchDate"),
+                  t("common.product"),
+                  t("common.quantity"),
+                  t("common.createdAt"),
+                  t("common.status"),
+                  "",
+                ].map((col, i) => (
+                  <th key={i} style={S.th}>{col}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {loading && batches.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={7}
-                    style={{ ...S.td, textAlign: "center", color: "#9ca3af", padding: 32 }}
-                  >
-                    Loading…
+                  <td colSpan={7} style={{ ...S.td, textAlign: "center", color: "#9ca3af", padding: 32 }}>
+                    {t("common.loading")}
                   </td>
                 </tr>
               ) : batches.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={7}
-                    style={{ ...S.td, textAlign: "center", color: "#9ca3af", padding: 32 }}
-                  >
-                    No batches found.
+                  <td colSpan={7} style={{ ...S.td, textAlign: "center", color: "#9ca3af", padding: 32 }}>
+                    {t("batches.emptyList")}
                   </td>
                 </tr>
               ) : (
                 batches.map((batch) =>
-                  editingId === batch.id
-                    ? renderEditRow(batch)
-                    : renderRow(batch)
+                  editingId === batch.id ? renderEditRow(batch) : renderRow(batch)
                 )
               )}
             </tbody>
@@ -707,11 +652,11 @@ export default function BatchesPage() {
         {/* Pagination */}
         <div style={S.pagination}>
           <span style={S.pageInfo}>
-            Page {page} of {totalPages} ({total} total)
+            {t("batches.pageInfo", { page, totalPages, total })}
           </span>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <label style={{ fontSize: 13, color: "#6b7280" }}>
-              Per page:
+              {t("common.perPage")}
               <select
                 style={{ ...S.input, width: "auto", marginLeft: 4, padding: "4px 8px", fontSize: 13 }}
                 value={pageSize}
@@ -727,14 +672,14 @@ export default function BatchesPage() {
               onClick={() => goToPage(page - 1)}
               disabled={page <= 1 || loading}
             >
-              ← Previous
+              ← {t("common.previous")}
             </button>
             <button
               style={S.btnSecondary}
               onClick={() => goToPage(page + 1)}
               disabled={page >= totalPages || loading}
             >
-              Next →
+              {t("common.next")} →
             </button>
           </div>
         </div>

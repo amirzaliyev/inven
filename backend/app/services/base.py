@@ -2,7 +2,7 @@ import logging
 import re
 from typing import Any, Generic, TypeVar
 
-from sqlalchemy import select
+from sqlalchemy import Column, FromClause, Table, delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -53,6 +53,8 @@ def _extract_foreignkey_err_msg(err_msg: str) -> tuple[str, str, int]:
 
 
 class BaseModelService(Generic[ModelT]):
+    __dependency_graph: dict[FromClause, set] = {}
+
     model: type[ModelT]
 
     def __init__(self, session: AsyncSession, auto_commit: bool = True):
@@ -158,6 +160,15 @@ class BaseModelService(Generic[ModelT]):
         else:
             await self._session.flush()
 
+    async def delete(self, **kwargs) -> None:
+        obj = await self.get(**kwargs)
+
+        await self._has_dependent_rows(obj)
+
+        await self._session.execute(delete(self.model).where(self.model.id == obj.id))
+
+        await self._commit_or_flush()
+
     def _build_filters(self, **kwargs):
         if not kwargs:
             raise ValueError("Conditions are not specified")
@@ -174,3 +185,46 @@ class BaseModelService(Generic[ModelT]):
             conditions.append(column == value)
 
         return conditions
+
+    def _get_dependants(self, obj: ModelT) -> set[Column]:
+        obj_table = obj.__table__
+        _dependants = self.__dependency_graph.get(obj_table, set())
+
+        if not _dependants:
+            tables = BaseModel.metadata.tables.values()
+            for table in tables:
+                for fk in table.foreign_keys:
+                    if fk.ondelete != "RESTRICT":
+                        continue
+
+                    if obj_table == fk.column.table:
+                        set_ = self.__dependency_graph.get(obj_table, set())
+                        set_.add(fk.parent)
+                        self.__dependency_graph[obj_table] = set_
+
+        _dependants = self.__dependency_graph.get(obj_table, set())
+
+        return _dependants
+
+    async def _has_dependent_rows(
+        self, obj: ModelT, /, raise_exception: bool = True
+    ) -> bool:
+        dependants = self._get_dependants(obj)
+
+        entities: set[str] = set()
+        for dep in dependants:
+            result = await self._session.scalar(select(dep.table).where(dep == obj.id))
+
+            if result:
+                entities.add(dep.table.name)
+
+        if entities:
+            if raise_exception:
+                obj_name = self.model.__name__.lower()
+                raise Conflict(
+                    code=f"{obj_name}_referenced",
+                    message=f"{obj_name} is referenced by {', '.join(entities)}",
+                )
+            return True
+
+        return False

@@ -60,7 +60,11 @@ class BatchService(BaseModelService[Batch]):
             .where(*conditions)
             .offset((page - 1) * size)
             .limit(size)
-            .order_by(self.model.batch_date)
+            .order_by(
+                self.model.is_confirmed,
+                self.model.batch_date.desc(),
+                self.model.created_at.desc(),
+            )
         )
         total_cnt = select(func.count()).select_from(self.model)
 
@@ -98,3 +102,7 @@ class BatchService(BaseModelService[Batch]):
         await self._session.refresh(batch)
 
         return batch
+
+    async def delete(self, **kwargs) -> None:
+        await super().delete(**kwargs)
+        await self._session.commit()

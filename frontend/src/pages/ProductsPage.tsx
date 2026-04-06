@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { createProduct, listProducts, updateProduct } from "../api/products";
+import { useTranslation } from "react-i18next";
+import { createProduct, deleteProduct, listProducts, updateProduct } from "../api/products";
 import type { Product } from "../types";
 
 interface EditState {
@@ -8,6 +9,8 @@ interface EditState {
 }
 
 export default function ProductsPage() {
+  const { t } = useTranslation();
+
   const [name, setName] = useState("");
   const [skuCode, setSkuCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -29,6 +32,9 @@ export default function ProductsPage() {
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
+  // Delete state
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
@@ -37,11 +43,11 @@ export default function ProductsPage() {
       setTotalPages(result.pages);
       setTotal(result.total);
     } catch {
-      setErrorMsg("Failed to load products.");
+      setErrorMsg(t("products.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [page, search]);
+  }, [page, search, t]);
 
   useEffect(() => {
     fetchProducts();
@@ -56,21 +62,21 @@ export default function ProductsPage() {
     const trimmedSku = skuCode.trim();
 
     if (!trimmedName || !trimmedSku) {
-      setErrorMsg("Both name and SKU code are required.");
+      setErrorMsg(t("products.validationRequired"));
       return;
     }
 
     setSubmitting(true);
     try {
       const created = await createProduct({ name: trimmedName, sku_code: trimmedSku });
-      setSuccessMsg(`Product "${created.name}" created successfully.`);
+      setSuccessMsg(t("products.createSuccess", { name: created.name }));
       setName("");
       setSkuCode("");
       fetchProducts();
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        "Failed to create product. Please try again.";
+        t("products.createError");
       setErrorMsg(msg);
     } finally {
       setSubmitting(false);
@@ -94,26 +100,40 @@ export default function ProductsPage() {
     const trimmedSku = editState.sku_code.trim();
 
     if (!trimmedName || !trimmedSku) {
-      setEditError("Both name and SKU code are required.");
+      setEditError(t("products.validationRequired"));
       return;
     }
 
     setEditSubmitting(true);
     setEditError(null);
     try {
-      const updated = await updateProduct(productId, {
-        name: trimmedName,
-        sku_code: trimmedSku,
-      });
+      const updated = await updateProduct(productId, { name: trimmedName, sku_code: trimmedSku });
       setProducts((prev) => prev.map((p) => (p.id === productId ? updated : p)));
       setEditingId(null);
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        "Failed to update product. Please try again.";
+        t("products.updateError");
       setEditError(msg);
     } finally {
       setEditSubmitting(false);
+    }
+  }
+
+  async function handleDelete(product: Product) {
+    if (!window.confirm(t("products.deleteConfirm", { name: product.name }))) return;
+    setDeletingId(product.id);
+    try {
+      await deleteProduct(product.id);
+      setProducts((prev) => prev.filter((p) => p.id !== product.id));
+      setTotal((total) => total - 1);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        t("products.deleteError");
+      setErrorMsg(msg);
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -282,6 +302,16 @@ export default function ProductsPage() {
       fontWeight: 500,
       cursor: "pointer",
     },
+    btnDelete: {
+      padding: "5px 12px",
+      background: "transparent",
+      color: "#dc2626",
+      border: "1px solid #fca5a5",
+      borderRadius: 5,
+      fontSize: 13,
+      fontWeight: 500,
+      cursor: "pointer",
+    },
     emptyState: { padding: "40px 20px", textAlign: "center" as const, color: "#9ca3af", fontSize: 14 },
     pagination: {
       display: "flex",
@@ -320,20 +350,20 @@ export default function ProductsPage() {
 
   return (
     <div style={styles.page}>
-      <h1 style={styles.heading}>Products</h1>
-      <p style={styles.subheading}>Create and manage your product catalog.</p>
+      <h1 style={styles.heading}>{t("products.title")}</h1>
+      <p style={styles.subheading}>{t("products.subtitle")}</p>
 
       {/* Create form */}
       <div style={styles.card}>
-        <div style={styles.cardTitle}>Add New Product</div>
+        <div style={styles.cardTitle}>{t("products.addNew")}</div>
         <form onSubmit={handleCreate} noValidate>
           <div style={styles.formRow}>
             <div style={styles.fieldGroup}>
-              <label htmlFor="product-name" style={styles.label}>Product Name</label>
+              <label htmlFor="product-name" style={styles.label}>{t("products.nameLabel")}</label>
               <input
                 id="product-name"
                 type="text"
-                placeholder="e.g. Red Brick Standard"
+                placeholder={t("products.namePlaceholder")}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 style={styles.input}
@@ -341,11 +371,11 @@ export default function ProductsPage() {
               />
             </div>
             <div style={styles.fieldGroup}>
-              <label htmlFor="sku-code" style={styles.label}>SKU Code</label>
+              <label htmlFor="sku-code" style={styles.label}>{t("products.skuLabel")}</label>
               <input
                 id="sku-code"
                 type="text"
-                placeholder="e.g. RB-001"
+                placeholder={t("products.skuPlaceholder")}
                 value={skuCode}
                 onChange={(e) => setSkuCode(e.target.value)}
                 style={styles.input}
@@ -357,7 +387,7 @@ export default function ProductsPage() {
               style={submitting ? styles.btnPrimaryDisabled : styles.btnPrimary}
               disabled={submitting}
             >
-              {submitting ? "Creating..." : "Create Product"}
+              {submitting ? t("products.creating") : t("products.create")}
             </button>
           </div>
 
@@ -369,7 +399,7 @@ export default function ProductsPage() {
       {/* Product list */}
       <div style={styles.tableCard}>
         <div style={styles.tableHeader}>
-          <span style={styles.tableTitle}>All Products</span>
+          <span style={styles.tableTitle}>{t("products.listTitle")}</span>
           <span style={styles.badge}>{total}</span>
         </div>
 
@@ -378,39 +408,39 @@ export default function ProductsPage() {
           <form onSubmit={handleSearch} style={styles.searchRow}>
             <input
               type="text"
-              placeholder="Search by name or SKU..."
+              placeholder={t("products.searchPlaceholder")}
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               style={{ ...styles.input, flex: 1 }}
             />
-            <button type="submit" style={styles.btnPrimary}>Search</button>
+            <button type="submit" style={styles.btnPrimary}>{t("common.search")}</button>
             {search && (
               <button
                 type="button"
                 style={styles.btnCancel}
                 onClick={() => { setSearchInput(""); setSearch(""); setPage(1); }}
               >
-                Clear
+                {t("common.clear")}
               </button>
             )}
           </form>
         </div>
 
         {loading ? (
-          <div style={styles.emptyState}>Loading...</div>
+          <div style={styles.emptyState}>{t("common.loading")}</div>
         ) : products.length === 0 ? (
           <div style={styles.emptyState}>
-            {search ? "No products match your search." : "No products yet. Create one above."}
+            {search ? t("products.emptySearch") : t("products.emptyList")}
           </div>
         ) : (
           <>
             <table style={styles.table}>
               <thead>
                 <tr>
-                  <th style={styles.th}>ID</th>
-                  <th style={styles.th}>Name</th>
-                  <th style={styles.th}>SKU Code</th>
-                  <th style={{ ...styles.th, width: 160 }}>Actions</th>
+                  <th style={styles.th}>{t("common.id")}</th>
+                  <th style={styles.th}>{t("common.name")}</th>
+                  <th style={styles.th}>{t("products.skuHeader")}</th>
+                  <th style={{ ...styles.th, width: 200 }}>{t("common.actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -464,10 +494,10 @@ export default function ProductsPage() {
                                 onClick={() => handleUpdate(product.id)}
                                 disabled={editSubmitting}
                               >
-                                {editSubmitting ? "Saving..." : "Save"}
+                                {editSubmitting ? t("common.saving") : t("common.save")}
                               </button>
                               <button style={styles.btnCancel} onClick={cancelEdit} disabled={editSubmitting}>
-                                Cancel
+                                {t("common.cancel")}
                               </button>
                             </div>
                             {editError && (
@@ -475,13 +505,26 @@ export default function ProductsPage() {
                             )}
                           </div>
                         ) : (
-                          <button
-                            style={styles.btnEdit}
-                            onClick={() => startEdit(product)}
-                            disabled={editingId !== null}
-                          >
-                            Edit
-                          </button>
+                          <div style={styles.actionGroup}>
+                            <button
+                              style={styles.btnEdit}
+                              onClick={() => startEdit(product)}
+                              disabled={editingId !== null || deletingId !== null}
+                            >
+                              {t("common.edit")}
+                            </button>
+                            <button
+                              style={
+                                deletingId === product.id
+                                  ? { ...styles.btnDelete, opacity: 0.6, cursor: "not-allowed" }
+                                  : styles.btnDelete
+                              }
+                              onClick={() => handleDelete(product)}
+                              disabled={editingId !== null || deletingId !== null}
+                            >
+                              {deletingId === product.id ? t("products.deleting") : t("common.delete")}
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -498,15 +541,15 @@ export default function ProductsPage() {
                   onClick={() => setPage((p) => p - 1)}
                   disabled={page <= 1}
                 >
-                  Previous
+                  {t("common.previous")}
                 </button>
-                <span>Page {page} of {totalPages}</span>
+                <span>{t("common.pageOf", { page, total: totalPages })}</span>
                 <button
                   style={page >= totalPages ? styles.pageBtnDisabled : styles.pageBtn}
                   onClick={() => setPage((p) => p + 1)}
                   disabled={page >= totalPages}
                 >
-                  Next
+                  {t("common.next")}
                 </button>
               </div>
             )}

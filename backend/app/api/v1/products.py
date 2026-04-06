@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, status
 
 from app.auth.dependencies import get_current_user
 from app.schemas.auth import UserContext
@@ -43,3 +43,12 @@ async def update_product(
     service: ProductService = Depends(get_product_service),
 ):
     return await service.update(id=product_id, data=data, user=current_user)
+
+
+@router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_product(
+    product_id: int,
+    current_user: UserContext = Depends(get_current_user),
+    service: ProductService = Depends(get_product_service),
+):
+    return await service.delete(id=product_id)

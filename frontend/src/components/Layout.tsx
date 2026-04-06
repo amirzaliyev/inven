@@ -1,15 +1,17 @@
 import { NavLink, Outlet } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 
 const navItems = [
-  { label: "Dashboard", to: "/", end: true },
-  { label: "Products", to: "/products" },
-  { label: "Batches", to: "/batches" },
-  { label: "Inventory Transactions", to: "/transactions" },
+  { key: "nav.dashboard", to: "/", end: true },
+  { key: "nav.products", to: "/products" },
+  { key: "nav.batches", to: "/batches" },
+  { key: "nav.transactions", to: "/transactions" },
 ];
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const { t, i18n } = useTranslation();
 
   return (
     <div style={{ display: "flex", height: "100%", minHeight: "100vh" }}>
@@ -25,20 +27,8 @@ export default function Layout() {
         }}
       >
         {/* Logo / App Name */}
-        <div
-          style={{
-            padding: "24px 20px 20px",
-            borderBottom: "1px solid #334155",
-          }}
-        >
-          <span
-            style={{
-              fontSize: "18px",
-              fontWeight: "700",
-              letterSpacing: "0.5px",
-              color: "#f1f5f9",
-            }}
-          >
+        <div style={{ padding: "24px 20px 20px", borderBottom: "1px solid #334155" }}>
+          <span style={{ fontSize: "18px", fontWeight: "700", letterSpacing: "0.5px", color: "#f1f5f9" }}>
             Inven ERP
           </span>
         </div>
@@ -62,7 +52,7 @@ export default function Layout() {
                 transition: "background-color 0.15s, color 0.15s",
               })}
             >
-              {item.label}
+              {t(item.key)}
             </NavLink>
           ))}
         </nav>
@@ -84,6 +74,30 @@ export default function Layout() {
             flexShrink: 0,
           }}
         >
+          {/* Language switcher */}
+          <div style={{ display: "flex", gap: 4 }}>
+            {(["uz", "en"] as const).map((lang) => (
+              <button
+                key={lang}
+                onClick={() => i18n.changeLanguage(lang)}
+                style={{
+                  padding: "4px 10px",
+                  fontSize: "12px",
+                  fontWeight: i18n.language === lang ? "700" : "400",
+                  backgroundColor: i18n.language === lang ? "#1e293b" : "transparent",
+                  color: i18n.language === lang ? "#f1f5f9" : "#94a3b8",
+                  border: "1px solid #cbd5e1",
+                  borderRadius: "5px",
+                  cursor: "pointer",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                {lang}
+              </button>
+            ))}
+          </div>
+
           <span style={{ fontSize: "14px", color: "#475569", fontWeight: "500" }}>
             {user?.display_name}
           </span>
@@ -100,26 +114,15 @@ export default function Layout() {
               cursor: "pointer",
               transition: "background-color 0.15s",
             }}
-            onMouseEnter={(e) =>
-              ((e.target as HTMLButtonElement).style.backgroundColor = "#e2e8f0")
-            }
-            onMouseLeave={(e) =>
-              ((e.target as HTMLButtonElement).style.backgroundColor = "#f1f5f9")
-            }
+            onMouseEnter={(e) => ((e.target as HTMLButtonElement).style.backgroundColor = "#e2e8f0")}
+            onMouseLeave={(e) => ((e.target as HTMLButtonElement).style.backgroundColor = "#f1f5f9")}
           >
-            Logout
+            {t("nav.logout")}
           </button>
         </header>
 
         {/* Page content */}
-        <main
-          style={{
-            flex: 1,
-            padding: "32px",
-            backgroundColor: "#f8fafc",
-            overflowY: "auto",
-          }}
-        >
+        <main style={{ flex: 1, padding: "32px", backgroundColor: "#f8fafc", overflowY: "auto" }}>
           <Outlet />
         </main>
       </div>

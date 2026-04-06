@@ -102,6 +102,14 @@ export interface InventoryTransaction {
   lines: Array<{ product_id: number; quantity: number }>;
 }
 
+export interface InventoryTransactionList {
+  items: InventoryTransaction[];
+  total: number;
+  page: number;
+  size: number;
+  pages: number;
+}
+
 // Errors
 export interface ApiError {
   code: string;

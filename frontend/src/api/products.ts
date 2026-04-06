@@ -17,3 +17,8 @@ export async function updateProduct(productId: number, payload: ProductUpdate): 
   const { data } = await client.put<Product>(`/v1/products/${productId}`, payload);
   return data;
 }
+
+
+export async function deleteProduct(productId: number): Promise<void> {
+  await client.delete<null>(`/v1/products/${productId}`)
+}

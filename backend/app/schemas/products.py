@@ -12,7 +12,7 @@ class Product(BaseModel):
     sku_code: str
 
     created_at: datetime
-    update_at: datetime
+    updated_at: datetime
 
 
 class ProductList(BaseModel):

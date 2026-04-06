@@ -15,7 +15,7 @@ class Batch(BaseModel):
     created_by_id: int | None = None
     updated_by_id: int | None = None
     created_at: datetime
-    update_at: datetime
+    updated_at: datetime
 
 
 class BatchList(BaseModel):

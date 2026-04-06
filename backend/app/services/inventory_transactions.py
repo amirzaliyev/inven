@@ -1,3 +1,6 @@
+from collections.abc import Sequence
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enums import SourceType, TransactionType
@@ -47,5 +50,24 @@ class InventoryTransactionService(BaseModelService[InventoryTransaction]):
         size: int,
         transaction_type: TransactionType | None = None,
         source_type: SourceType | None = None,
-    ):
-        pass
+    ) -> tuple[Sequence[InventoryTransaction], int]:
+        conditions = []
+
+        if transaction_type:
+            conditions.append(self.model.transaction_type == transaction_type)
+
+        if source_type:
+            conditions.append(self.model.source_type == source_type)
+
+        offset = (page - 1) * size
+        stmt = select(self.model).where(*conditions).offset(offset).limit(size)
+        total_cnt = select(func.count()).select_from(self.model).where(*conditions)
+
+        txns = (await self._session.scalars(stmt)).all()
+        total = await self._session.scalar(total_cnt) or 0
+
+        return txns, total
+
+    async def delete(self, **kwargs) -> None:
+        await super().delete(**kwargs)
+        await self._session.commit()

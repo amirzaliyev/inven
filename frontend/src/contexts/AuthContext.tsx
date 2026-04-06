@@ -5,7 +5,7 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
-import { login as apiLogin } from "../api/auth";
+import { login as apiLogin, logout as apiLogout } from "../api/auth";
 
 interface JwtPayload {
   sub: string;
@@ -58,7 +58,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(decoded);
   }
 
-  function logout() {
+  async function logout() {
+    try {
+      await apiLogout();
+    } catch {
+      // proceed with local cleanup even if backend call fails
+    }
     localStorage.removeItem("access_token");
     setUser(null);
   }

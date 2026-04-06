@@ -1,10 +1,12 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 
 export default function LoginPage() {
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -25,7 +27,7 @@ export default function LoginPage() {
       await login(username, password);
       navigate("/", { replace: true });
     } catch {
-      setError("Invalid username or password. Please try again.");
+      setError(t("login.invalidCredentials"));
     } finally {
       setLoading(false);
     }
@@ -36,7 +38,7 @@ export default function LoginPage() {
       <div style={styles.card}>
         <div style={styles.header}>
           <h1 style={styles.appName}>Inven</h1>
-          <p style={styles.subtitle}>Sign in to your account</p>
+          <p style={styles.subtitle}>{t("login.subtitle")}</p>
         </div>
 
         <form onSubmit={handleSubmit} noValidate style={styles.form}>
@@ -48,7 +50,7 @@ export default function LoginPage() {
 
           <div style={styles.field}>
             <label htmlFor="username" style={styles.label}>
-              Username
+              {t("login.username")}
             </label>
             <input
               id="username"
@@ -59,14 +61,14 @@ export default function LoginPage() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               style={styles.input}
-              placeholder="Enter your username"
+              placeholder={t("login.usernamePlaceholder")}
               disabled={loading}
             />
           </div>
 
           <div style={styles.field}>
             <label htmlFor="password" style={styles.label}>
-              Password
+              {t("login.password")}
             </label>
             <input
               id="password"
@@ -76,7 +78,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               style={styles.input}
-              placeholder="Enter your password"
+              placeholder={t("login.passwordPlaceholder")}
               disabled={loading}
             />
           </div>
@@ -86,12 +88,10 @@ export default function LoginPage() {
             disabled={loading || !username || !password}
             style={{
               ...styles.button,
-              ...(loading || !username || !password
-                ? styles.buttonDisabled
-                : {}),
+              ...(loading || !username || !password ? styles.buttonDisabled : {}),
             }}
           >
-            {loading ? "Signing in…" : "Sign in"}
+            {loading ? t("login.signingIn") : t("login.submit")}
           </button>
         </form>
       </div>
@@ -107,16 +107,14 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     backgroundColor: "#f4f5f7",
     padding: "1rem",
-    fontFamily:
-      "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   },
   card: {
     width: "100%",
     maxWidth: "400px",
     backgroundColor: "#ffffff",
     borderRadius: "10px",
-    boxShadow:
-      "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
     overflow: "hidden",
   },
   header: {

@@ -1,22 +1,24 @@
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
-
-const statCards = [
-  { label: "Total Products", value: "—" },
-  { label: "Active Batches", value: "—" },
-  { label: "Transactions Today", value: "—" },
-  { label: "Low Stock Alerts", value: "—" },
-];
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { t } = useTranslation();
+
+  const statCards = [
+    { key: "dashboard.totalProducts" },
+    { key: "dashboard.activeBatches" },
+    { key: "dashboard.transactionsToday" },
+    { key: "dashboard.lowStockAlerts" },
+  ];
 
   return (
     <div>
       <h1 style={{ margin: "0 0 4px", fontSize: "24px", fontWeight: "700", color: "#0f172a" }}>
-        Dashboard
+        {t("dashboard.title")}
       </h1>
       <p style={{ margin: "0 0 32px", fontSize: "14px", color: "#64748b" }}>
-        Welcome back, {user?.display_name}. Here's an overview of your inventory.
+        {t("dashboard.welcome", { name: user?.display_name })}
       </p>
 
       <div
@@ -28,7 +30,7 @@ export default function DashboardPage() {
       >
         {statCards.map((card) => (
           <div
-            key={card.label}
+            key={card.key}
             style={{
               backgroundColor: "#fff",
               border: "1px solid #e2e8f0",
@@ -47,17 +49,10 @@ export default function DashboardPage() {
                 letterSpacing: "0.5px",
               }}
             >
-              {card.label}
+              {t(card.key)}
             </p>
-            <p
-              style={{
-                margin: 0,
-                fontSize: "32px",
-                fontWeight: "700",
-                color: "#0f172a",
-              }}
-            >
-              {card.value}
+            <p style={{ margin: 0, fontSize: "32px", fontWeight: "700", color: "#0f172a" }}>
+              —
             </p>
           </div>
         ))}

@@ -16,7 +16,7 @@ class BaseModel(DeclarativeBase):
         server_default=func.now(),
         default=lambda: datetime.now(timezone.utc),
     )
-    update_at: Mapped[datetime] = mapped_column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         server_default=func.now(),
