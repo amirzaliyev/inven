@@ -13,3 +13,8 @@ class Product(BaseModel):
     created_by_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+
+    # current_price: Mapped["ProductPrice"] = relationship(
+    #     "ProductPrice",
+    #     primaryjoin=and_(),
+    # )

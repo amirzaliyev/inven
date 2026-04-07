@@ -6,6 +6,7 @@ from app.services.auth import AuthService
 from app.services.batches import BatchService
 from app.services.customers import CustomerService
 from app.services.inventory_transactions import InventoryTransactionService
+from app.services.orders import OrderService
 from app.services.products import ProductService
 from app.services.users import UserService
 
@@ -42,3 +43,9 @@ def get_customer_service(
     session: AsyncSession = Depends(get_async_session),
 ) -> CustomerService:
     return CustomerService(session=session)
+
+
+def get_order_service(
+    session: AsyncSession = Depends(get_async_session),
+) -> OrderService:
+    return OrderService(session=session)

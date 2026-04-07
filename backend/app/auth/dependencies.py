@@ -1,4 +1,4 @@
-from fastapi import Cookie, Depends, Request
+from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.auth.jwt import verify_access_token, verify_refresh_token

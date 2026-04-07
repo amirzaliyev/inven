@@ -1,238 +1,20 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import { useToast } from "../contexts/ToastContext";
+import { useConfirm } from "../contexts/ConfirmContext";
+import { DateInput } from "../components/DateInput";
+import { Modal } from "../components/Modal";
+import { AsyncSelect } from "../components/AsyncSelect";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { confirmBatch, createBatch, listBatches, updateBatch } from "../api/batches";
 import { listProducts } from "../api/products";
-import type { Batch, BatchCreate, BatchUpdate, Product } from "../types";
+import type { Batch, BatchCreate, BatchUpdate } from "../types";
+import { formatDate } from "../utils/date";
 
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
-const S = {
-  page: {
-    fontFamily: "'Inter', 'Segoe UI', sans-serif",
-    maxWidth: 960,
-    margin: "0 auto",
-    padding: "32px 24px",
-    color: "#1a1a2e",
-  } as React.CSSProperties,
-
-  heading: {
-    fontSize: 24,
-    fontWeight: 700,
-    marginBottom: 24,
-    letterSpacing: "-0.5px",
-  } as React.CSSProperties,
-
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: 600,
-    marginBottom: 12,
-    color: "#374151",
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.06em",
-  } as React.CSSProperties,
-
-  card: {
-    background: "#ffffff",
-    border: "1px solid #e5e7eb",
-    borderRadius: 10,
-    padding: "20px 24px",
-    marginBottom: 28,
-    boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
-  } as React.CSSProperties,
-
-  form: {
-    display: "flex",
-    gap: 12,
-    flexWrap: "wrap" as const,
-    alignItems: "flex-end",
-  } as React.CSSProperties,
-
-  fieldGroup: {
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: 4,
-    minWidth: 140,
-  } as React.CSSProperties,
-
-  label: {
-    fontSize: 12,
-    fontWeight: 600,
-    color: "#6b7280",
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.05em",
-  } as React.CSSProperties,
-
-  input: {
-    padding: "7px 10px",
-    fontSize: 14,
-    border: "1px solid #d1d5db",
-    borderRadius: 6,
-    outline: "none",
-    background: "#f9fafb",
-    color: "#111827",
-    width: "100%",
-    boxSizing: "border-box" as const,
-    transition: "border-color 0.15s",
-  } as React.CSSProperties,
-
-  btnPrimary: {
-    padding: "7px 18px",
-    fontSize: 14,
-    fontWeight: 600,
-    background: "#4f46e5",
-    color: "#fff",
-    border: "none",
-    borderRadius: 6,
-    cursor: "pointer",
-    transition: "background 0.15s",
-    alignSelf: "flex-end",
-    height: 36,
-  } as React.CSSProperties,
-
-  btnSecondary: {
-    padding: "5px 12px",
-    fontSize: 13,
-    fontWeight: 500,
-    background: "#f3f4f6",
-    color: "#374151",
-    border: "1px solid #d1d5db",
-    borderRadius: 6,
-    cursor: "pointer",
-  } as React.CSSProperties,
-
-  btnDanger: {
-    padding: "5px 12px",
-    fontSize: 13,
-    fontWeight: 500,
-    background: "#fff0f0",
-    color: "#dc2626",
-    border: "1px solid #fca5a5",
-    borderRadius: 6,
-    cursor: "pointer",
-  } as React.CSSProperties,
-
-  btnSuccess: {
-    padding: "5px 12px",
-    fontSize: 13,
-    fontWeight: 500,
-    background: "#ecfdf5",
-    color: "#059669",
-    border: "1px solid #6ee7b7",
-    borderRadius: 6,
-    cursor: "pointer",
-  } as React.CSSProperties,
-
-  tableWrapper: {
-    overflowX: "auto" as const,
-  } as React.CSSProperties,
-
-  table: {
-    width: "100%",
-    borderCollapse: "collapse" as const,
-    fontSize: 14,
-  } as React.CSSProperties,
-
-  th: {
-    textAlign: "left" as const,
-    padding: "10px 14px",
-    fontSize: 12,
-    fontWeight: 700,
-    color: "#6b7280",
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.05em",
-    borderBottom: "2px solid #e5e7eb",
-    background: "#f9fafb",
-    whiteSpace: "nowrap" as const,
-  } as React.CSSProperties,
-
-  td: {
-    padding: "10px 14px",
-    borderBottom: "1px solid #f3f4f6",
-    color: "#374151",
-    verticalAlign: "middle" as const,
-  } as React.CSSProperties,
-
-  trHover: {
-    background: "#f9fafb",
-  } as React.CSSProperties,
-
-  badge: (confirmed: boolean): React.CSSProperties => ({
-    display: "inline-block",
-    padding: "2px 10px",
-    fontSize: 11,
-    fontWeight: 700,
-    borderRadius: 999,
-    background: confirmed ? "#d1fae5" : "#fef3c7",
-    color: confirmed ? "#065f46" : "#92400e",
-    letterSpacing: "0.04em",
-    textTransform: "uppercase",
-  }),
-
-  inlineInput: {
-    padding: "4px 8px",
-    fontSize: 14,
-    border: "1px solid #818cf8",
-    borderRadius: 5,
-    outline: "none",
-    width: 110,
-    background: "#fff",
-    boxSizing: "border-box" as const,
-  } as React.CSSProperties,
-
-  pagination: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    marginTop: 16,
-    justifyContent: "flex-end",
-  } as React.CSSProperties,
-
-  pageInfo: {
-    fontSize: 13,
-    color: "#6b7280",
-  } as React.CSSProperties,
-
-  banner: (type: "success" | "error"): React.CSSProperties => ({
-    padding: "10px 16px",
-    borderRadius: 8,
-    fontSize: 14,
-    marginBottom: 16,
-    background: type === "success" ? "#ecfdf5" : "#fef2f2",
-    color: type === "success" ? "#065f46" : "#991b1b",
-    border: `1px solid ${type === "success" ? "#a7f3d0" : "#fecaca"}`,
-    fontWeight: 500,
-  }),
-} as const;
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 interface EditState {
   batch_date: string;
   product_id: string;
   quantity: string;
-}
-
-interface Feedback {
-  type: "success" | "error";
-  message: string;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  } catch {
-    return iso;
-  }
 }
 
 function todayIso(): string {
@@ -245,11 +27,10 @@ const EMPTY_FORM: BatchCreate = {
   quantity: 1,
 };
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 export default function BatchesPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const toast = useToast();
+  const confirm = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const page = Number(searchParams.get("page")) || 1;
   const pageSize = Number(searchParams.get("size")) || 10;
@@ -259,8 +40,6 @@ export default function BatchesPage() {
   const [total, setTotal] = useState(0);
 
   const [loading, setLoading] = useState(false);
-  const [feedback, setFeedback] = useState<Feedback | null>(null);
-  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [form, setForm] = useState<BatchCreate>(EMPTY_FORM);
   const [creating, setCreating] = useState(false);
@@ -273,13 +52,9 @@ export default function BatchesPage() {
   });
   const [saving, setSaving] = useState(false);
 
-  const [products, setProducts] = useState<Product[]>([]);
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
-  const [hoveredRow, setHoveredRow] = useState<number | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
-  // -------------------------------------------------------------------------
-  // Data fetching
-  // -------------------------------------------------------------------------
   const fetchBatches = useCallback(async () => {
     setLoading(true);
     try {
@@ -288,25 +63,20 @@ export default function BatchesPage() {
       setTotalPages(result.pages);
       setTotal(result.total);
     } catch (err: unknown) {
-      showFeedback("error", extractMessage(err, t("batches.loadError")));
+      toast("error", extractMessage(err, t("batches.loadError")));
     } finally {
       setLoading(false);
     }
   }, [page, pageSize, t]);
 
+  const fetchProductOptions = useCallback(
+    (q: string) => listProducts(1, 50, q || undefined).then((r) => r.items.map((p) => ({ value: p.id, label: `${p.name} (${p.sku_code})` }))),
+    []
+  );
+
   useEffect(() => {
     fetchBatches();
-    listProducts(1, 100).then((res) => setProducts(res.items)).catch(() => {});
   }, [fetchBatches]);
-
-  // -------------------------------------------------------------------------
-  // Feedback helper
-  // -------------------------------------------------------------------------
-  function showFeedback(type: "success" | "error", message: string) {
-    setFeedback({ type, message });
-    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
-    feedbackTimer.current = setTimeout(() => setFeedback(null), 5000);
-  }
 
   function extractMessage(err: unknown, fallback: string): string {
     if (
@@ -323,31 +93,26 @@ export default function BatchesPage() {
     return fallback;
   }
 
-  // -------------------------------------------------------------------------
-  // Create batch
-  // -------------------------------------------------------------------------
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!form.product_id || form.quantity < 1) {
-      showFeedback("error", t("batches.validationRequired"));
+      toast("error", t("batches.validationRequired"));
       return;
     }
     setCreating(true);
     try {
       await createBatch(form);
-      showFeedback("success", t("batches.createSuccess"));
+      toast("success", t("batches.createSuccess"));
       setForm(EMPTY_FORM);
+      setShowCreateModal(false);
       await fetchBatches();
     } catch (err: unknown) {
-      showFeedback("error", extractMessage(err, t("batches.createError")));
+      toast("error", extractMessage(err, t("batches.createError")));
     } finally {
       setCreating(false);
     }
   }
 
-  // -------------------------------------------------------------------------
-  // Inline edit
-  // -------------------------------------------------------------------------
   function startEdit(batch: Batch) {
     setEditingId(batch.id);
     setEditState({
@@ -368,7 +133,7 @@ export default function BatchesPage() {
     if (editState.quantity) payload.quantity = Number(editState.quantity);
 
     if (payload.quantity !== undefined && payload.quantity < 1) {
-      showFeedback("error", t("batches.quantityMin"));
+      toast("error", t("batches.quantityMin"));
       return;
     }
 
@@ -377,140 +142,131 @@ export default function BatchesPage() {
       const updated = await updateBatch(batchId, payload);
       setBatches((prev) => prev.map((b) => (b.id === batchId ? updated : b)));
       setEditingId(null);
-      showFeedback("success", t("batches.updateSuccess", { id: batchId }));
+      toast("success", t("batches.updateSuccess", { id: batchId }));
     } catch (err: unknown) {
-      showFeedback("error", extractMessage(err, t("batches.updateError")));
+      toast("error", extractMessage(err, t("batches.updateError")));
     } finally {
       setSaving(false);
     }
   }
 
-  // -------------------------------------------------------------------------
-  // Confirm batch
-  // -------------------------------------------------------------------------
   async function handleConfirm(batchId: number) {
+    const ok = await confirm({ message: t("batches.confirmConfirm"), danger: false });
+    if (!ok) return;
     setConfirmingId(batchId);
     try {
       const confirmed = await confirmBatch(batchId);
       setBatches((prev) => prev.map((b) => (b.id === batchId ? confirmed : b)));
-      showFeedback("success", t("batches.confirmSuccess", { id: batchId }));
+      toast("success", t("batches.confirmSuccess", { id: batchId }));
     } catch (err: unknown) {
-      showFeedback("error", extractMessage(err, t("batches.confirmError")));
+      toast("error", extractMessage(err, t("batches.confirmError")));
     } finally {
       setConfirmingId(null);
     }
   }
 
-  // -------------------------------------------------------------------------
-  // Pagination
-  // -------------------------------------------------------------------------
   function goToPage(p: number) {
     if (p < 1 || p > totalPages) return;
     setSearchParams({ page: String(p), size: String(pageSize) });
   }
 
-  // -------------------------------------------------------------------------
-  // Render helpers
-  // -------------------------------------------------------------------------
   function renderEditRow(batch: Batch) {
     return (
-      <tr key={batch.id} style={{ background: "#eef2ff" }}>
-        <td style={S.td}>{batch.id}</td>
-        <td style={S.td}>
-          <input
-            type="date"
-            style={S.inlineInput}
+      <tr key={batch.id} className="bg-cyan-50">
+        <td className="hidden sm:table-cell px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">{batch.id}</td>
+        <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
+          <DateInput
             value={editState.batch_date}
-            onChange={(e) => setEditState((s) => ({ ...s, batch_date: e.target.value }))}
+            onChange={(v) => setEditState((s) => ({ ...s, batch_date: v }))}
+            className="w-32 px-2 py-1 border border-cyan-300 rounded-lg text-sm outline-none bg-white"
           />
         </td>
-        <td style={S.td}>
-          <select
-            style={{ ...S.inlineInput, width: 160 }}
-            value={editState.product_id}
-            onChange={(e) => setEditState((s) => ({ ...s, product_id: e.target.value }))}
-          >
-            <option value="">{t("common.selectProduct")}</option>
-            {products.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} ({p.sku_code})
-              </option>
-            ))}
-          </select>
+        <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
+          <AsyncSelect
+            value={editState.product_id === "" ? "" : Number(editState.product_id)}
+            onChange={(v) => setEditState((s) => ({ ...s, product_id: v === "" ? "" : String(v) }))}
+            fetchOptions={fetchProductOptions}
+            placeholder={t("common.selectProduct")}
+            className="w-40 px-2 py-1 border border-cyan-300 rounded-lg text-sm outline-none bg-white"
+          />
         </td>
-        <td style={S.td}>
+        <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
           <input
             type="number"
-            style={{ ...S.inlineInput, width: 90 }}
             value={editState.quantity}
             min={1}
             onChange={(e) => setEditState((s) => ({ ...s, quantity: e.target.value }))}
+            className="w-22 px-2 py-1 border border-cyan-300 rounded-lg text-sm outline-none bg-white"
           />
         </td>
-        <td style={S.td}>—</td>
-        <td style={S.td}>
-          <span style={S.badge(batch.is_confirmed)}>
+        <td className="hidden sm:table-cell px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">—</td>
+        <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
+          <span className={`inline-block px-2.5 py-0.5 text-xs font-bold rounded-full uppercase tracking-wide ${
+            batch.is_confirmed ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
+          }`}>
             {batch.is_confirmed ? t("batches.confirmed") : t("batches.pending")}
           </span>
         </td>
-        <td style={{ ...S.td, display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <button style={S.btnSuccess} onClick={() => saveEdit(batch.id)} disabled={saving}>
-            {saving ? t("common.saving") : t("common.save")}
-          </button>
-          <button style={S.btnDanger} onClick={cancelEdit} disabled={saving}>
-            {t("common.cancel")}
-          </button>
+        <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
+          <div className="flex gap-2 flex-wrap">
+            <button
+              className="px-2.5 py-0.5 bg-green-500 text-white rounded-lg text-xs font-medium cursor-pointer hover:bg-green-600"
+              onClick={() => saveEdit(batch.id)}
+              disabled={saving}
+            >
+              {saving ? t("common.saving") : t("common.save")}
+            </button>
+            <button
+              className="px-2.5 py-0.5 text-red-500 border border-red-200 rounded-lg text-xs font-medium hover:bg-red-50 cursor-pointer"
+              onClick={cancelEdit}
+              disabled={saving}
+            >
+              {t("common.cancel")}
+            </button>
+          </div>
         </td>
       </tr>
     );
   }
 
   function renderRow(batch: Batch) {
-    const isHovered = hoveredRow === batch.id;
     const canEdit = !batch.is_confirmed;
 
     return (
-      <tr
-        key={batch.id}
-        style={isHovered ? { ...S.trHover } : {}}
-        onMouseEnter={() => setHoveredRow(batch.id)}
-        onMouseLeave={() => setHoveredRow(null)}
-      >
-        <td style={{ ...S.td, color: "#6b7280", fontVariantNumeric: "tabular-nums" }}>
+      <tr key={batch.id} className="hover:bg-bluegray-50 group">
+        <td className="hidden sm:table-cell px-5 py-3 text-sm text-bluegray-400 border-b border-bluegray-100 font-mono">
           #{batch.id}
         </td>
-        <td style={S.td}>{formatDate(batch.batch_date)}</td>
-        <td style={S.td}>
-          {products.find((p) => p.id === batch.product_id)?.name ?? `#${batch.product_id}`}
+        <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
+          {formatDate(batch.batch_date, i18n.language)}
         </td>
-        <td style={{ ...S.td, fontVariantNumeric: "tabular-nums" }}>
+        <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
+          {`#${batch.product_id}`}
+        </td>
+        <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100 tabular-nums">
           {batch.quantity.toLocaleString()}
         </td>
-        <td style={{ ...S.td, color: "#9ca3af", fontSize: 13 }}>
-          {formatDate(batch.created_at)}
+        <td className="hidden sm:table-cell px-5 py-3 text-xs text-bluegray-400 border-b border-bluegray-100">
+          {formatDate(batch.created_at, i18n.language)}
         </td>
-        <td style={S.td}>
-          <span style={S.badge(batch.is_confirmed)}>
+        <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
+          <span className={`inline-block px-2.5 py-0.5 text-xs font-bold rounded-full uppercase tracking-wide ${
+            batch.is_confirmed ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
+          }`}>
             {batch.is_confirmed ? t("batches.confirmed") : t("batches.pending")}
           </span>
         </td>
-        <td style={S.td}>
+        <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
           {canEdit && (
-            <div style={{ display: "flex", gap: 6 }}>
+            <div className="flex gap-2 opacity-40 group-hover:opacity-100 transition-opacity">
               <button
-                style={{ ...S.btnSecondary, opacity: isHovered ? 1 : 0.4, transition: "opacity 0.15s" }}
+                className="px-3 py-1 text-bluegray-600 border border-bluegray-200 rounded-lg text-sm font-medium hover:bg-bluegray-50 cursor-pointer"
                 onClick={() => startEdit(batch)}
               >
                 {t("common.edit")}
               </button>
               <button
-                style={{
-                  ...S.btnPrimary,
-                  padding: "5px 12px",
-                  fontSize: 13,
-                  opacity: isHovered ? 1 : 0.4,
-                  transition: "opacity 0.15s",
-                }}
+                className="px-3 py-1 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl text-sm font-semibold cursor-pointer transition-colors"
                 onClick={() => handleConfirm(batch.id)}
                 disabled={confirmingId === batch.id}
               >
@@ -523,120 +279,114 @@ export default function BatchesPage() {
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Render
-  // -------------------------------------------------------------------------
   return (
-    <div style={S.page}>
-      <h1 style={S.heading}>{t("batches.title")}</h1>
+    <div className="max-w-5xl mx-auto w-full">
+      <h1 className="text-2xl font-bold text-bluegray-800 mb-1 tracking-tight">{t("batches.title")}</h1>
+      <p className="text-sm text-bluegray-400 mb-8">&nbsp;</p>
 
-      {feedback && <div style={S.banner(feedback.type)}>{feedback.message}</div>}
-
-      {/* Create form */}
-      <div style={S.card}>
-        <p style={S.sectionTitle}>{t("batches.newBatch")}</p>
-        <form onSubmit={handleCreate} style={S.form}>
-          <div style={S.fieldGroup}>
-            <label style={S.label} htmlFor="batch_date">{t("batches.batchDate")}</label>
-            <input
+      {/* Create modal */}
+      <Modal
+        open={showCreateModal}
+        onClose={() => { setShowCreateModal(false); setForm(EMPTY_FORM); }}
+        title={t("batches.newBatch")}
+      >
+        <form onSubmit={handleCreate} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-bluegray-500 uppercase tracking-wider" htmlFor="batch_date">{t("batches.batchDate")}</label>
+            <DateInput
               id="batch_date"
-              type="date"
-              style={S.input}
               value={form.batch_date}
-              required
-              onChange={(e) => setForm((f) => ({ ...f, batch_date: e.target.value }))}
+              onChange={(v) => setForm((f) => ({ ...f, batch_date: v }))}
+              className="px-3 py-2 border border-bluegray-200 rounded-xl text-sm outline-none focus:border-cyan-400 bg-white"
             />
           </div>
 
-          <div style={S.fieldGroup}>
-            <label style={S.label} htmlFor="product_id">{t("common.product")}</label>
-            <select
-              id="product_id"
-              style={S.input}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-bluegray-500 uppercase tracking-wider">{t("common.product")}</label>
+            <AsyncSelect
               value={form.product_id === 0 ? "" : form.product_id}
-              required
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  product_id: e.target.value === "" ? 0 : Number(e.target.value),
-                }))
-              }
-            >
-              <option value="">{t("common.selectProduct")}</option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.sku_code})
-                </option>
-              ))}
-            </select>
+              onChange={(v) => setForm((f) => ({ ...f, product_id: v === "" ? 0 : v }))}
+              fetchOptions={fetchProductOptions}
+              placeholder={t("common.selectProduct")}
+              className="px-3 py-2 border border-bluegray-200 rounded-xl text-sm outline-none focus:border-cyan-400 bg-white"
+            />
           </div>
 
-          <div style={S.fieldGroup}>
-            <label style={S.label} htmlFor="quantity">{t("common.quantity")}</label>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-bluegray-500 uppercase tracking-wider" htmlFor="quantity">{t("common.quantity")}</label>
             <input
               id="quantity"
               type="number"
-              style={S.input}
               value={form.quantity}
               min={1}
               required
               onChange={(e) => setForm((f) => ({ ...f, quantity: Number(e.target.value) }))}
+              className="px-3 py-2 border border-bluegray-200 rounded-xl text-sm outline-none focus:border-cyan-400 bg-white"
             />
           </div>
 
-          <button type="submit" style={S.btnPrimary} disabled={creating}>
+          <button
+            type="submit"
+            disabled={creating}
+            className={`w-full px-5 py-2 rounded-xl text-sm font-semibold text-white ${
+              creating ? "bg-cyan-300 cursor-not-allowed" : "bg-cyan-500 hover:bg-cyan-600 cursor-pointer transition-colors"
+            }`}
+          >
             {creating ? t("batches.creating") : t("batches.create")}
           </button>
         </form>
-      </div>
+      </Modal>
 
       {/* Table */}
-      <div style={S.card}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <p style={{ ...S.sectionTitle, marginBottom: 0 }}>
+      <div className="bg-white rounded-2xl shadow overflow-hidden">
+        <div className="flex justify-between items-center px-5 py-4 border-b border-bluegray-100">
+          <p className="text-xs font-semibold text-bluegray-500 uppercase tracking-wider">
             {t("batches.listTitle")}{" "}
             {!loading && (
-              <span style={{ color: "#9ca3af", fontSize: 12, fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>
+              <span className="text-bluegray-400 text-xs font-normal normal-case tracking-normal ml-1">
                 {t("batches.totalCount", { total })}
               </span>
             )}
           </p>
-          <button
-            style={{ ...S.btnSecondary, fontSize: 12 }}
-            onClick={() => fetchBatches()}
-            disabled={loading}
-          >
-            {loading ? t("common.loading") : t("common.refresh")}
-          </button>
+          <div className="flex gap-2">
+            <button
+              className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg text-xs font-semibold cursor-pointer transition-colors"
+              onClick={() => setShowCreateModal(true)}
+            >
+              + {t("batches.newBatch")}
+            </button>
+            <button
+              className="px-3 py-1.5 bg-bluegray-50 text-bluegray-600 border border-bluegray-200 rounded-lg text-xs font-medium cursor-pointer hover:bg-bluegray-100"
+              onClick={() => fetchBatches()}
+              disabled={loading}
+            >
+              {loading ? t("common.loading") : t("common.refresh")}
+            </button>
+          </div>
         </div>
 
-        <div style={S.tableWrapper}>
-          <table style={S.table}>
+        <div className="overflow-x-auto"><table className="w-full border-collapse">
             <thead>
               <tr>
-                {[
-                  t("common.id"),
-                  t("batches.batchDate"),
-                  t("common.product"),
-                  t("common.quantity"),
-                  t("common.createdAt"),
-                  t("common.status"),
-                  "",
-                ].map((col, i) => (
-                  <th key={i} style={S.th}>{col}</th>
-                ))}
+                <th className="hidden sm:table-cell bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("common.id")}</th>
+                <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("batches.batchDate")}</th>
+                <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("common.product")}</th>
+                <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("common.quantity")}</th>
+                <th className="hidden sm:table-cell bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("common.createdAt")}</th>
+                <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("common.status")}</th>
+                <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left"></th>
               </tr>
             </thead>
             <tbody>
               {loading && batches.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ ...S.td, textAlign: "center", color: "#9ca3af", padding: 32 }}>
+                  <td colSpan={7} className="px-5 py-10 text-center text-sm text-bluegray-400">
                     {t("common.loading")}
                   </td>
                 </tr>
               ) : batches.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ ...S.td, textAlign: "center", color: "#9ca3af", padding: 32 }}>
+                  <td colSpan={7} className="px-5 py-10 text-center text-sm text-bluegray-400">
                     {t("batches.emptyList")}
                   </td>
                 </tr>
@@ -646,21 +396,18 @@ export default function BatchesPage() {
                 )
               )}
             </tbody>
-          </table>
-        </div>
+          </table></div>
 
         {/* Pagination */}
-        <div style={S.pagination}>
-          <span style={S.pageInfo}>
-            {t("batches.pageInfo", { page, totalPages, total })}
-          </span>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <label style={{ fontSize: 13, color: "#6b7280" }}>
+        <div className="flex items-center justify-between gap-2 flex-wrap px-4 py-3 border-t border-bluegray-100 text-sm text-bluegray-500">
+          <span className="text-xs">{t("batches.pageInfo", { page, totalPages, total })}</span>
+          <div className="flex items-center gap-2">
+            <label className="hidden sm:flex text-xs text-bluegray-500 items-center gap-1">
               {t("common.perPage")}
               <select
-                style={{ ...S.input, width: "auto", marginLeft: 4, padding: "4px 8px", fontSize: 13 }}
                 value={pageSize}
                 onChange={(e) => setSearchParams({ page: "1", size: e.target.value })}
+                className="ml-1 px-2 py-1 border border-bluegray-200 rounded-lg text-xs bg-white outline-none"
               >
                 {[10, 20, 50, 100].map((n) => (
                   <option key={n} value={n}>{n}</option>
@@ -668,18 +415,24 @@ export default function BatchesPage() {
               </select>
             </label>
             <button
-              style={S.btnSecondary}
+              className={`px-3 py-1.5 border rounded-lg text-sm cursor-pointer ${
+                page <= 1 || loading ? "bg-bluegray-50 text-bluegray-300 border-bluegray-100 cursor-not-allowed" : "bg-white text-bluegray-700 border-bluegray-200 hover:bg-bluegray-50"
+              }`}
               onClick={() => goToPage(page - 1)}
               disabled={page <= 1 || loading}
             >
-              ← {t("common.previous")}
+              <span className="sm:hidden">←</span>
+              <span className="hidden sm:inline">← {t("common.previous")}</span>
             </button>
             <button
-              style={S.btnSecondary}
+              className={`px-3 py-1.5 border rounded-lg text-sm cursor-pointer ${
+                page >= totalPages || loading ? "bg-bluegray-50 text-bluegray-300 border-bluegray-100 cursor-not-allowed" : "bg-white text-bluegray-700 border-bluegray-200 hover:bg-bluegray-50"
+              }`}
               onClick={() => goToPage(page + 1)}
               disabled={page >= totalPages || loading}
             >
-              {t("common.next")} →
+              <span className="sm:hidden">→</span>
+              <span className="hidden sm:inline">{t("common.next")} →</span>
             </button>
           </div>
         </div>

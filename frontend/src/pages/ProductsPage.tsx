@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { createProduct, deleteProduct, listProducts, updateProduct } from "../api/products";
 import type { Product } from "../types";
+import { useToast } from "../contexts/ToastContext";
+import { useConfirm } from "../contexts/ConfirmContext";
+import { Modal } from "../components/Modal";
 
 interface EditState {
   name: string;
@@ -10,14 +13,14 @@ interface EditState {
 
 export default function ProductsPage() {
   const { t } = useTranslation();
+  const toast = useToast();
+  const confirm = useConfirm();
 
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [name, setName] = useState("");
   const [skuCode, setSkuCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // List state
   const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -26,13 +29,11 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
 
-  // Per-row editing state
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editState, setEditState] = useState<EditState>({ name: "", sku_code: "" });
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
-  // Delete state
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const fetchProducts = useCallback(async () => {
@@ -43,7 +44,7 @@ export default function ProductsPage() {
       setTotalPages(result.pages);
       setTotal(result.total);
     } catch {
-      setErrorMsg(t("products.loadError"));
+      toast("error", t("products.loadError"));
     } finally {
       setLoading(false);
     }
@@ -55,29 +56,28 @@ export default function ProductsPage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    setSuccessMsg(null);
-    setErrorMsg(null);
 
     const trimmedName = name.trim();
     const trimmedSku = skuCode.trim();
 
     if (!trimmedName || !trimmedSku) {
-      setErrorMsg(t("products.validationRequired"));
+      toast("error", t("products.validationRequired"));
       return;
     }
 
     setSubmitting(true);
     try {
       const created = await createProduct({ name: trimmedName, sku_code: trimmedSku });
-      setSuccessMsg(t("products.createSuccess", { name: created.name }));
+      toast("success", t("products.createSuccess", { name: created.name }));
       setName("");
       setSkuCode("");
+      setShowCreateModal(false);
       fetchProducts();
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         t("products.createError");
-      setErrorMsg(msg);
+      toast("error", msg);
     } finally {
       setSubmitting(false);
     }
@@ -110,6 +110,7 @@ export default function ProductsPage() {
       const updated = await updateProduct(productId, { name: trimmedName, sku_code: trimmedSku });
       setProducts((prev) => prev.map((p) => (p.id === productId ? updated : p)));
       setEditingId(null);
+      toast("success", t("products.updateSuccess", { name: updated.name }));
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
@@ -121,17 +122,19 @@ export default function ProductsPage() {
   }
 
   async function handleDelete(product: Product) {
-    if (!window.confirm(t("products.deleteConfirm", { name: product.name }))) return;
+    const ok = await confirm({ message: t("products.deleteConfirm", { name: product.name }), danger: true });
+    if (!ok) return;
     setDeletingId(product.id);
     try {
       await deleteProduct(product.id);
       setProducts((prev) => prev.filter((p) => p.id !== product.id));
       setTotal((total) => total - 1);
+      toast("success", t("products.deleteSuccess", { name: product.name }));
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         t("products.deleteError");
-      setErrorMsg(msg);
+      toast("error", msg);
     } finally {
       setDeletingId(null);
     }
@@ -143,281 +146,45 @@ export default function ProductsPage() {
     setSearch(searchInput);
   }
 
-  const styles: Record<string, React.CSSProperties> = {
-    page: {
-      maxWidth: 760,
-      margin: "0 auto",
-      padding: "40px 24px",
-      fontFamily: "'Inter', system-ui, sans-serif",
-      color: "#111",
-    },
-    heading: { fontSize: 24, fontWeight: 700, marginBottom: 8, letterSpacing: "-0.3px" },
-    subheading: { fontSize: 14, color: "#6b7280", marginBottom: 32 },
-    card: {
-      background: "#fff",
-      border: "1px solid #e5e7eb",
-      borderRadius: 10,
-      padding: "28px 28px 24px",
-      marginBottom: 32,
-      boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-    },
-    cardTitle: { fontSize: 15, fontWeight: 600, marginBottom: 20, color: "#374151" },
-    formRow: { display: "flex", gap: 12, flexWrap: "wrap" as const, alignItems: "flex-end" },
-    fieldGroup: { display: "flex", flexDirection: "column" as const, gap: 6, flex: 1, minWidth: 160 },
-    label: { fontSize: 13, fontWeight: 500, color: "#374151" },
-    input: {
-      padding: "8px 12px",
-      border: "1px solid #d1d5db",
-      borderRadius: 6,
-      fontSize: 14,
-      outline: "none",
-      background: "#fff",
-      color: "#111",
-    },
-    btnPrimary: {
-      padding: "9px 20px",
-      background: "#2563eb",
-      color: "#fff",
-      border: "none",
-      borderRadius: 6,
-      fontSize: 14,
-      fontWeight: 600,
-      cursor: "pointer",
-      whiteSpace: "nowrap" as const,
-      alignSelf: "flex-end",
-      flexShrink: 0,
-    },
-    btnPrimaryDisabled: {
-      padding: "9px 20px",
-      background: "#93c5fd",
-      color: "#fff",
-      border: "none",
-      borderRadius: 6,
-      fontSize: 14,
-      fontWeight: 600,
-      cursor: "not-allowed",
-      whiteSpace: "nowrap" as const,
-      alignSelf: "flex-end",
-      flexShrink: 0,
-    },
-    alertSuccess: {
-      marginTop: 16,
-      padding: "10px 14px",
-      background: "#f0fdf4",
-      border: "1px solid #bbf7d0",
-      borderRadius: 6,
-      fontSize: 13,
-      color: "#15803d",
-    },
-    alertError: {
-      marginTop: 16,
-      padding: "10px 14px",
-      background: "#fef2f2",
-      border: "1px solid #fecaca",
-      borderRadius: 6,
-      fontSize: 13,
-      color: "#dc2626",
-    },
-    tableCard: {
-      background: "#fff",
-      border: "1px solid #e5e7eb",
-      borderRadius: 10,
-      overflow: "hidden",
-      boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-    },
-    tableHeader: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      padding: "16px 20px",
-      borderBottom: "1px solid #e5e7eb",
-    },
-    tableTitle: { fontSize: 15, fontWeight: 600, color: "#374151" },
-    badge: {
-      background: "#eff6ff",
-      color: "#2563eb",
-      fontSize: 12,
-      fontWeight: 600,
-      padding: "2px 8px",
-      borderRadius: 12,
-    },
-    table: { width: "100%", borderCollapse: "collapse" as const },
-    th: {
-      textAlign: "left" as const,
-      fontSize: 12,
-      fontWeight: 600,
-      color: "#6b7280",
-      textTransform: "uppercase" as const,
-      letterSpacing: "0.05em",
-      padding: "10px 20px",
-      background: "#f9fafb",
-      borderBottom: "1px solid #e5e7eb",
-    },
-    td: {
-      padding: "12px 20px",
-      fontSize: 14,
-      color: "#374151",
-      borderBottom: "1px solid #f3f4f6",
-      verticalAlign: "middle" as const,
-    },
-    inlineInput: {
-      padding: "5px 8px",
-      border: "1px solid #93c5fd",
-      borderRadius: 5,
-      fontSize: 14,
-      outline: "none",
-      background: "#eff6ff",
-      color: "#111",
-      width: "100%",
-      boxSizing: "border-box" as const,
-    },
-    actionGroup: { display: "flex", gap: 8 },
-    btnEdit: {
-      padding: "5px 12px",
-      background: "transparent",
-      color: "#2563eb",
-      border: "1px solid #bfdbfe",
-      borderRadius: 5,
-      fontSize: 13,
-      fontWeight: 500,
-      cursor: "pointer",
-    },
-    btnSave: {
-      padding: "5px 12px",
-      background: "#2563eb",
-      color: "#fff",
-      border: "none",
-      borderRadius: 5,
-      fontSize: 13,
-      fontWeight: 500,
-      cursor: "pointer",
-    },
-    btnCancel: {
-      padding: "5px 12px",
-      background: "transparent",
-      color: "#6b7280",
-      border: "1px solid #e5e7eb",
-      borderRadius: 5,
-      fontSize: 13,
-      fontWeight: 500,
-      cursor: "pointer",
-    },
-    btnDelete: {
-      padding: "5px 12px",
-      background: "transparent",
-      color: "#dc2626",
-      border: "1px solid #fca5a5",
-      borderRadius: 5,
-      fontSize: 13,
-      fontWeight: 500,
-      cursor: "pointer",
-    },
-    emptyState: { padding: "40px 20px", textAlign: "center" as const, color: "#9ca3af", fontSize: 14 },
-    pagination: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      padding: "12px 20px",
-      borderTop: "1px solid #e5e7eb",
-      fontSize: 13,
-      color: "#6b7280",
-    },
-    pageBtn: {
-      padding: "5px 14px",
-      background: "#fff",
-      color: "#374151",
-      border: "1px solid #d1d5db",
-      borderRadius: 5,
-      fontSize: 13,
-      cursor: "pointer",
-    },
-    pageBtnDisabled: {
-      padding: "5px 14px",
-      background: "#f9fafb",
-      color: "#d1d5db",
-      border: "1px solid #e5e7eb",
-      borderRadius: 5,
-      fontSize: 13,
-      cursor: "not-allowed",
-    },
-    searchRow: {
-      display: "flex",
-      gap: 8,
-      marginBottom: 16,
-      alignItems: "center",
-    },
-  };
+  const inputCls = "px-3 py-2 border border-bluegray-200 rounded-xl text-sm outline-none focus:border-cyan-400 focus:shadow-sm bg-white disabled:opacity-60 w-full";
 
   return (
-    <div style={styles.page}>
-      <h1 style={styles.heading}>{t("products.title")}</h1>
-      <p style={styles.subheading}>{t("products.subtitle")}</p>
-
-      {/* Create form */}
-      <div style={styles.card}>
-        <div style={styles.cardTitle}>{t("products.addNew")}</div>
-        <form onSubmit={handleCreate} noValidate>
-          <div style={styles.formRow}>
-            <div style={styles.fieldGroup}>
-              <label htmlFor="product-name" style={styles.label}>{t("products.nameLabel")}</label>
-              <input
-                id="product-name"
-                type="text"
-                placeholder={t("products.namePlaceholder")}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                style={styles.input}
-                disabled={submitting}
-              />
-            </div>
-            <div style={styles.fieldGroup}>
-              <label htmlFor="sku-code" style={styles.label}>{t("products.skuLabel")}</label>
-              <input
-                id="sku-code"
-                type="text"
-                placeholder={t("products.skuPlaceholder")}
-                value={skuCode}
-                onChange={(e) => setSkuCode(e.target.value)}
-                style={styles.input}
-                disabled={submitting}
-              />
-            </div>
-            <button
-              type="submit"
-              style={submitting ? styles.btnPrimaryDisabled : styles.btnPrimary}
-              disabled={submitting}
-            >
-              {submitting ? t("products.creating") : t("products.create")}
-            </button>
-          </div>
-
-          {successMsg && <div style={styles.alertSuccess}>{successMsg}</div>}
-          {errorMsg && <div style={styles.alertError}>{errorMsg}</div>}
-        </form>
-      </div>
+    <div className="max-w-3xl mx-auto w-full">
+      <h1 className="text-2xl font-bold text-bluegray-800 mb-1 tracking-tight">{t("products.title")}</h1>
+      <p className="text-sm text-bluegray-400 mb-6">{t("products.subtitle")}</p>
 
       {/* Product list */}
-      <div style={styles.tableCard}>
-        <div style={styles.tableHeader}>
-          <span style={styles.tableTitle}>{t("products.listTitle")}</span>
-          <span style={styles.badge}>{total}</span>
+      <div className="bg-white rounded-2xl shadow overflow-hidden">
+        <div className="flex justify-between items-center px-5 py-4 border-b border-bluegray-100">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-bluegray-700">{t("products.listTitle")}</span>
+            <span className="bg-cyan-50 text-cyan-700 text-xs font-semibold px-2 py-0.5 rounded-full">{total}</span>
+          </div>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl text-xs font-semibold cursor-pointer transition-colors"
+          >
+            + {t("products.addNew")}
+          </button>
         </div>
 
         {/* Search */}
-        <div style={{ padding: "12px 20px 0" }}>
-          <form onSubmit={handleSearch} style={styles.searchRow}>
+        <div className="px-5 pt-3 pb-3">
+          <form onSubmit={handleSearch} className="flex gap-2 items-center">
             <input
               type="text"
               placeholder={t("products.searchPlaceholder")}
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              style={{ ...styles.input, flex: 1 }}
+              className="flex-1 px-3 py-2 border border-bluegray-200 rounded-xl text-sm outline-none focus:border-cyan-400 focus:shadow-sm bg-white"
             />
-            <button type="submit" style={styles.btnPrimary}>{t("common.search")}</button>
+            <button type="submit" className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl text-sm font-semibold cursor-pointer transition-colors">
+              {t("common.search")}
+            </button>
             {search && (
               <button
                 type="button"
-                style={styles.btnCancel}
+                className="px-3 py-2 text-bluegray-500 border border-bluegray-200 rounded-xl text-sm font-medium hover:bg-bluegray-50 cursor-pointer"
                 onClick={() => { setSearchInput(""); setSearch(""); setPage(1); }}
               >
                 {t("common.clear")}
@@ -427,135 +194,130 @@ export default function ProductsPage() {
         </div>
 
         {loading ? (
-          <div style={styles.emptyState}>{t("common.loading")}</div>
+          <div className="px-5 py-10 text-center text-sm text-bluegray-400">{t("common.loading")}</div>
         ) : products.length === 0 ? (
-          <div style={styles.emptyState}>
+          <div className="px-5 py-10 text-center text-sm text-bluegray-400">
             {search ? t("products.emptySearch") : t("products.emptyList")}
           </div>
         ) : (
           <>
-            <table style={styles.table}>
+            <div className="overflow-x-auto"><table className="w-full border-collapse">
               <thead>
                 <tr>
-                  <th style={styles.th}>{t("common.id")}</th>
-                  <th style={styles.th}>{t("common.name")}</th>
-                  <th style={styles.th}>{t("products.skuHeader")}</th>
-                  <th style={{ ...styles.th, width: 200 }}>{t("common.actions")}</th>
+                  <th className="hidden sm:table-cell bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("common.id")}</th>
+                  <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("common.name")}</th>
+                  <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("products.skuHeader")}</th>
+                  <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left w-36">{t("common.actions")}</th>
                 </tr>
               </thead>
               <tbody>
-                {products.map((product) => {
-                  const isEditing = editingId === product.id;
-                  return (
-                    <tr key={product.id}>
-                      <td style={styles.td}>
-                        <span style={{ color: "#9ca3af", fontFamily: "monospace", fontSize: 13 }}>
-                          #{product.id}
-                        </span>
-                      </td>
-
-                      <td style={styles.td}>
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            value={editState.name}
-                            onChange={(e) => setEditState((s) => ({ ...s, name: e.target.value }))}
-                            style={styles.inlineInput}
-                            disabled={editSubmitting}
-                            autoFocus
-                          />
-                        ) : (
-                          product.name
-                        )}
-                      </td>
-
-                      <td style={styles.td}>
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            value={editState.sku_code}
-                            onChange={(e) => setEditState((s) => ({ ...s, sku_code: e.target.value }))}
-                            style={styles.inlineInput}
-                            disabled={editSubmitting}
-                          />
-                        ) : (
-                          <span style={{ fontFamily: "monospace", background: "#f3f4f6", padding: "2px 7px", borderRadius: 4, fontSize: 13 }}>
-                            {product.sku_code}
-                          </span>
-                        )}
-                      </td>
-
-                      <td style={styles.td}>
-                        {isEditing ? (
-                          <div>
-                            <div style={styles.actionGroup}>
-                              <button
-                                style={editSubmitting ? { ...styles.btnSave, opacity: 0.6, cursor: "not-allowed" } : styles.btnSave}
-                                onClick={() => handleUpdate(product.id)}
-                                disabled={editSubmitting}
-                              >
-                                {editSubmitting ? t("common.saving") : t("common.save")}
-                              </button>
-                              <button style={styles.btnCancel} onClick={cancelEdit} disabled={editSubmitting}>
-                                {t("common.cancel")}
-                              </button>
-                            </div>
-                            {editError && (
-                              <div style={{ marginTop: 6, fontSize: 12, color: "#dc2626" }}>{editError}</div>
-                            )}
-                          </div>
-                        ) : (
-                          <div style={styles.actionGroup}>
-                            <button
-                              style={styles.btnEdit}
-                              onClick={() => startEdit(product)}
-                              disabled={editingId !== null || deletingId !== null}
-                            >
-                              {t("common.edit")}
-                            </button>
-                            <button
-                              style={
-                                deletingId === product.id
-                                  ? { ...styles.btnDelete, opacity: 0.6, cursor: "not-allowed" }
-                                  : styles.btnDelete
-                              }
-                              onClick={() => handleDelete(product)}
-                              disabled={editingId !== null || deletingId !== null}
-                            >
-                              {deletingId === product.id ? t("products.deleting") : t("common.delete")}
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {products.map((product) => (
+                  <tr key={product.id} className="hover:bg-bluegray-50">
+                    <td className="hidden sm:table-cell px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
+                      <span className="text-bluegray-400 font-mono text-xs">#{product.id}</span>
+                    </td>
+                    <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">{product.name}</td>
+                    <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
+                      <span className="font-mono bg-bluegray-50 px-2 py-0.5 rounded text-xs">{product.sku_code}</span>
+                    </td>
+                    <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
+                      <div className="flex gap-1.5">
+                        {/* Mobile: icon only */}
+                        <button onClick={() => startEdit(product)} disabled={deletingId !== null}
+                          className="p-1.5 text-cyan-600 border border-cyan-200 rounded-lg hover:bg-cyan-50 cursor-pointer disabled:opacity-40 sm:hidden">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button onClick={() => handleDelete(product)} disabled={deletingId !== null}
+                          className="p-1.5 text-red-500 border border-red-200 rounded-lg hover:bg-red-50 cursor-pointer disabled:opacity-40 sm:hidden">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                        {/* Desktop: text buttons */}
+                        <button onClick={() => startEdit(product)} disabled={deletingId !== null}
+                          className="hidden sm:block px-3 py-1 text-cyan-600 border border-cyan-200 rounded-lg text-sm font-medium hover:bg-cyan-50 cursor-pointer disabled:opacity-40">
+                          {t("common.edit")}
+                        </button>
+                        <button onClick={() => handleDelete(product)} disabled={deletingId !== null}
+                          className="hidden sm:block px-3 py-1 text-red-500 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-50 cursor-pointer disabled:opacity-40">
+                          {deletingId === product.id ? t("products.deleting") : t("common.delete")}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
-            </table>
+            </table></div>
 
-            {/* Pagination */}
             {totalPages > 1 && (
-              <div style={styles.pagination}>
+              <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-bluegray-100 text-sm text-bluegray-500">
                 <button
-                  style={page <= 1 ? styles.pageBtnDisabled : styles.pageBtn}
-                  onClick={() => setPage((p) => p - 1)}
-                  disabled={page <= 1}
+                  className={`px-3 py-1.5 border rounded-lg text-sm cursor-pointer ${page <= 1 ? "bg-bluegray-50 text-bluegray-300 border-bluegray-100 cursor-not-allowed" : "bg-white text-bluegray-700 border-bluegray-200 hover:bg-bluegray-50"}`}
+                  onClick={() => setPage((p) => p - 1)} disabled={page <= 1}
                 >
-                  {t("common.previous")}
+                  <span className="sm:hidden">←</span>
+                  <span className="hidden sm:inline">← {t("common.previous")}</span>
                 </button>
-                <span>{t("common.pageOf", { page, total: totalPages })}</span>
+                <span className="text-xs">{t("common.pageOf", { page, total: totalPages })}</span>
                 <button
-                  style={page >= totalPages ? styles.pageBtnDisabled : styles.pageBtn}
-                  onClick={() => setPage((p) => p + 1)}
-                  disabled={page >= totalPages}
+                  className={`px-3 py-1.5 border rounded-lg text-sm cursor-pointer ${page >= totalPages ? "bg-bluegray-50 text-bluegray-300 border-bluegray-100 cursor-not-allowed" : "bg-white text-bluegray-700 border-bluegray-200 hover:bg-bluegray-50"}`}
+                  onClick={() => setPage((p) => p + 1)} disabled={page >= totalPages}
                 >
-                  {t("common.next")}
+                  <span className="sm:hidden">→</span>
+                  <span className="hidden sm:inline">{t("common.next")} →</span>
                 </button>
               </div>
             )}
           </>
         )}
       </div>
+
+      {/* Create modal */}
+      <Modal open={showCreateModal} onClose={() => { setShowCreateModal(false); setName(""); setSkuCode(""); }} title={t("products.addNew")}>
+        <form onSubmit={async (e) => { await handleCreate(e); if (!submitting) setShowCreateModal(false); }} noValidate className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-bluegray-600">{t("products.nameLabel")}</label>
+            <input type="text" placeholder={t("products.namePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} disabled={submitting} className={inputCls} autoFocus />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-bluegray-600">{t("products.skuLabel")}</label>
+            <input type="text" placeholder={t("products.skuPlaceholder")} value={skuCode} onChange={(e) => setSkuCode(e.target.value)} disabled={submitting} className={inputCls} />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={() => { setShowCreateModal(false); setName(""); setSkuCode(""); }} className="px-4 py-2 rounded-xl text-sm font-medium text-bluegray-600 border border-bluegray-200 hover:bg-bluegray-50 cursor-pointer">
+              {t("common.cancel")}
+            </button>
+            <button type="submit" disabled={submitting} className={`px-5 py-2 rounded-xl text-sm font-semibold text-white ${submitting ? "bg-cyan-300 cursor-not-allowed" : "bg-cyan-500 hover:bg-cyan-600 cursor-pointer transition-colors"}`}>
+              {submitting ? t("products.creating") : t("products.create")}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit modal */}
+      <Modal open={editingId !== null} onClose={cancelEdit} title={t("common.edit")}>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-bluegray-600">{t("products.nameLabel")}</label>
+            <input type="text" value={editState.name} onChange={(e) => setEditState((s) => ({ ...s, name: e.target.value }))} disabled={editSubmitting} autoFocus className={inputCls} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-bluegray-600">{t("products.skuLabel")}</label>
+            <input type="text" value={editState.sku_code} onChange={(e) => setEditState((s) => ({ ...s, sku_code: e.target.value }))} disabled={editSubmitting} className={inputCls} />
+          </div>
+          {editError && <p className="text-xs text-red-600">{editError}</p>}
+          <div className="flex justify-end gap-2 pt-2">
+            <button onClick={cancelEdit} className="px-4 py-2 rounded-xl text-sm font-medium text-bluegray-600 border border-bluegray-200 hover:bg-bluegray-50 cursor-pointer">
+              {t("common.cancel")}
+            </button>
+            <button onClick={() => editingId !== null && handleUpdate(editingId)} disabled={editSubmitting} className={`px-5 py-2 rounded-xl text-sm font-semibold text-white ${editSubmitting ? "bg-cyan-300 cursor-not-allowed" : "bg-cyan-500 hover:bg-cyan-600 cursor-pointer transition-colors"}`}>
+              {editSubmitting ? t("common.saving") : t("common.save")}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

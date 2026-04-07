@@ -2,7 +2,7 @@ import logging
 import re
 from typing import Any, Generic, TypeVar
 
-from sqlalchemy import Column, FromClause, Table, delete, select
+from sqlalchemy import Column, FromClause, delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +10,7 @@ from app.models.base import BaseModel
 
 from .exceptions import Conflict, DomainError, ResourceNotFound
 
+__all__ = ["BaseModelService"]
 logger = logging.getLogger(__name__)
 
 ModelT = TypeVar("ModelT", bound=BaseModel)

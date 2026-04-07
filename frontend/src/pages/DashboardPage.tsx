@@ -14,46 +14,23 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <h1 style={{ margin: "0 0 4px", fontSize: "24px", fontWeight: "700", color: "#0f172a" }}>
+      <h1 className="text-2xl font-bold text-bluegray-800 mb-1 tracking-tight">
         {t("dashboard.title")}
       </h1>
-      <p style={{ margin: "0 0 32px", fontSize: "14px", color: "#64748b" }}>
+      <p className="text-sm text-bluegray-400 mb-8">
         {t("dashboard.welcome", { name: user?.display_name })}
       </p>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-          gap: "16px",
-        }}
-      >
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
         {statCards.map((card) => (
           <div
             key={card.key}
-            style={{
-              backgroundColor: "#fff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "10px",
-              padding: "24px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-            }}
+            className="bg-white rounded-2xl shadow p-6"
           >
-            <p
-              style={{
-                margin: "0 0 8px",
-                fontSize: "13px",
-                fontWeight: "500",
-                color: "#64748b",
-                textTransform: "uppercase",
-                letterSpacing: "0.5px",
-              }}
-            >
+            <p className="text-xs font-semibold text-bluegray-500 uppercase tracking-wider mb-2">
               {t(card.key)}
             </p>
-            <p style={{ margin: 0, fontSize: "32px", fontWeight: "700", color: "#0f172a" }}>
-              —
-            </p>
+            <p className="text-4xl font-bold text-bluegray-800">—</p>
           </div>
         ))}
       </div>

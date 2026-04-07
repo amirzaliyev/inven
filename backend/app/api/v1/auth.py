@@ -31,6 +31,8 @@ async def get_access_token(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
+        samesite="none",
+        secure=True,
     )
 
     return TokenResponse(

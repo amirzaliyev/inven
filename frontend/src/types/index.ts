@@ -69,16 +69,18 @@ export interface BatchList {
 }
 
 // Inventory Transactions
-export enum TransactionType {
-  DEBIT = "DEBIT",
-  CREDIT = "CREDIT",
-}
+export const TransactionType = {
+  DEBIT: "DEBIT",
+  CREDIT: "CREDIT",
+} as const;
+export type TransactionType = (typeof TransactionType)[keyof typeof TransactionType];
 
-export enum SourceType {
-  SALES = "SALES",
-  DEFECT = "DEFECT",
-  BATCH = "BATCH",
-}
+export const SourceType = {
+  SALES: "SALES",
+  DEFECT: "DEFECT",
+  BATCH: "BATCH",
+} as const;
+export type SourceType = (typeof SourceType)[keyof typeof SourceType];
 
 export interface ITransactionLineCreate {
   product_id: number;
@@ -104,6 +106,84 @@ export interface InventoryTransaction {
 
 export interface InventoryTransactionList {
   items: InventoryTransaction[];
+  total: number;
+  page: number;
+  size: number;
+  pages: number;
+}
+
+// Customers
+export interface Customer {
+  id: number;
+  full_name: string;
+  phone_number: string | null;
+  comment: string | null;
+}
+
+export interface CustomerCreate {
+  full_name: string;
+  phone_number?: string | null;
+  comment?: string | null;
+}
+
+export interface CustomerUpdate {
+  full_name?: string;
+  phone_number?: string | null;
+  comment?: string | null;
+}
+
+export interface CustomerList {
+  items: Customer[];
+  total: number;
+  page: number;
+  size: number;
+  pages: number;
+}
+
+// Orders
+export const OrderStatus = {
+  DRAFT: "DRAFT",
+  CANCELLED: "CANCELLED",
+  COMPLETED: "COMPLETED",
+} as const;
+export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
+
+export interface OrderItem {
+  id: number;
+  product_id: number;
+  quantity: number;
+  price: string;
+}
+
+export interface Order {
+  id: number;
+  status: OrderStatus;
+  order_date: string;
+  total_amount: string;
+  customer_id: number;
+  items: OrderItem[];
+}
+
+export interface OrderItemCreate {
+  product_id: number;
+  quantity: number;
+  price: number;
+}
+
+export interface OrderCreate {
+  order_date: string;
+  customer_id: number;
+  items: OrderItemCreate[];
+}
+
+export interface OrderUpdate {
+  order_date?: string;
+  customer_id?: number;
+  items?: OrderItemCreate[];
+}
+
+export interface OrderList {
+  items: Order[];
   total: number;
   page: number;
   size: number;

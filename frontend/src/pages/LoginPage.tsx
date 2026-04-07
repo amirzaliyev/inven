@@ -33,23 +33,30 @@ export default function LoginPage() {
     }
   }
 
+  const isDisabled = loading || !username || !password;
+
   return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        <div style={styles.header}>
-          <h1 style={styles.appName}>Inven</h1>
-          <p style={styles.subtitle}>{t("login.subtitle")}</p>
+    <div className="min-h-screen bg-bluegray-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl shadow-lg w-full max-w-sm overflow-hidden">
+        {/* Header */}
+        <div className="px-8 pt-8 pb-5 border-b border-bluegray-100">
+          <h1 className="text-2xl font-bold text-bluegray-800 mb-1">Inven</h1>
+          <p className="text-sm text-bluegray-400">{t("login.subtitle")}</p>
         </div>
 
-        <form onSubmit={handleSubmit} noValidate style={styles.form}>
+        {/* Form */}
+        <form onSubmit={handleSubmit} noValidate className="px-8 pt-6 pb-8 flex flex-col gap-5">
           {error && (
-            <div style={styles.errorBanner} role="alert">
+            <div
+              role="alert"
+              className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm"
+            >
               {error}
             </div>
           )}
 
-          <div style={styles.field}>
-            <label htmlFor="username" style={styles.label}>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="username" className="text-sm font-medium text-bluegray-700">
               {t("login.username")}
             </label>
             <input
@@ -60,14 +67,14 @@ export default function LoginPage() {
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              style={styles.input}
               placeholder={t("login.usernamePlaceholder")}
               disabled={loading}
+              className="px-3 py-2 border border-bluegray-200 rounded-xl text-sm outline-none focus:border-cyan-400 focus:shadow-sm bg-white disabled:opacity-60"
             />
           </div>
 
-          <div style={styles.field}>
-            <label htmlFor="password" style={styles.label}>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="password" className="text-sm font-medium text-bluegray-700">
               {t("login.password")}
             </label>
             <input
@@ -77,19 +84,20 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              style={styles.input}
               placeholder={t("login.passwordPlaceholder")}
               disabled={loading}
+              className="px-3 py-2 border border-bluegray-200 rounded-xl text-sm outline-none focus:border-cyan-400 focus:shadow-sm bg-white disabled:opacity-60"
             />
           </div>
 
           <button
             type="submit"
-            disabled={loading || !username || !password}
-            style={{
-              ...styles.button,
-              ...(loading || !username || !password ? styles.buttonDisabled : {}),
-            }}
+            disabled={isDisabled}
+            className={`mt-1 w-full rounded-2xl py-2.5 text-sm font-semibold text-white transition-colors ${
+              isDisabled
+                ? "bg-cyan-300 cursor-not-allowed"
+                : "bg-cyan-500 hover:bg-cyan-600 cursor-pointer"
+            }`}
           >
             {loading ? t("login.signingIn") : t("login.submit")}
           </button>
@@ -98,93 +106,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  page: {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#f4f5f7",
-    padding: "1rem",
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-  },
-  card: {
-    width: "100%",
-    maxWidth: "400px",
-    backgroundColor: "#ffffff",
-    borderRadius: "10px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
-    overflow: "hidden",
-  },
-  header: {
-    padding: "2rem 2rem 1.25rem",
-    borderBottom: "1px solid #f0f0f0",
-  },
-  appName: {
-    margin: "0 0 0.25rem",
-    fontSize: "1.5rem",
-    fontWeight: 700,
-    color: "#111827",
-    letterSpacing: "-0.02em",
-  },
-  subtitle: {
-    margin: 0,
-    fontSize: "0.875rem",
-    color: "#6b7280",
-  },
-  form: {
-    padding: "1.75rem 2rem 2rem",
-    display: "flex",
-    flexDirection: "column",
-    gap: "1.25rem",
-  },
-  errorBanner: {
-    backgroundColor: "#fef2f2",
-    border: "1px solid #fecaca",
-    color: "#b91c1c",
-    borderRadius: "6px",
-    padding: "0.75rem 1rem",
-    fontSize: "0.875rem",
-    lineHeight: 1.4,
-  },
-  field: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.375rem",
-  },
-  label: {
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    color: "#374151",
-  },
-  input: {
-    padding: "0.625rem 0.875rem",
-    fontSize: "0.9375rem",
-    border: "1px solid #d1d5db",
-    borderRadius: "6px",
-    outline: "none",
-    color: "#111827",
-    backgroundColor: "#fff",
-    transition: "border-color 0.15s, box-shadow 0.15s",
-    width: "100%",
-    boxSizing: "border-box",
-  },
-  button: {
-    marginTop: "0.25rem",
-    padding: "0.6875rem 1rem",
-    fontSize: "0.9375rem",
-    fontWeight: 600,
-    color: "#ffffff",
-    backgroundColor: "#2563eb",
-    border: "none",
-    borderRadius: "6px",
-    cursor: "pointer",
-    transition: "background-color 0.15s",
-    width: "100%",
-  },
-  buttonDisabled: {
-    backgroundColor: "#93c5fd",
-    cursor: "not-allowed",
-  },
-};
