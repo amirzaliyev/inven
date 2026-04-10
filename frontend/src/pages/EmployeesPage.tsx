@@ -361,7 +361,7 @@ export default function EmployeesPage() {
                     <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("employees.salaryLabel")}</th>
                     <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("employees.status")}</th>
                     {(canWrite || canDelete) && (
-                      <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left w-44">{t("common.actions")}</th>
+                      <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("common.actions")}</th>
                     )}
                   </tr>
                 </thead>
@@ -412,14 +412,14 @@ export default function EmployeesPage() {
                       </td>
                       {(canWrite || canDelete) && (
                         <td className="px-5 py-3 text-sm border-b border-bluegray-100">
-                          <div className="flex gap-1.5 flex-wrap">
-                            {/* Mobile: icons */}
+                          <div className="flex gap-1.5 items-center">
                             {canWrite && (
                               <>
                                 <button
                                   onClick={() => startEdit(emp)}
                                   disabled={deletingId !== null}
-                                  className="p-1.5 text-cyan-600 border border-cyan-200 rounded-lg hover:bg-cyan-50 cursor-pointer disabled:opacity-40 sm:hidden"
+                                  title={t("common.edit")}
+                                  className="p-1.5 text-cyan-600 border border-cyan-200 rounded-lg hover:bg-cyan-50 cursor-pointer disabled:opacity-40"
                                 >
                                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -429,7 +429,8 @@ export default function EmployeesPage() {
                                   <button
                                     onClick={() => { setAttachEmployee(emp); setAttachState({ username: "", password: "", role: "employee" }); setAttachError(null); }}
                                     disabled={deletingId !== null}
-                                    className="p-1.5 text-purple-600 border border-purple-200 rounded-lg hover:bg-purple-50 cursor-pointer disabled:opacity-40 sm:hidden"
+                                    title={t("employees.attachUser")}
+                                    className="p-1.5 text-purple-600 border border-purple-200 rounded-lg hover:bg-purple-50 cursor-pointer disabled:opacity-40"
                                   >
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                       <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
@@ -442,41 +443,12 @@ export default function EmployeesPage() {
                               <button
                                 onClick={() => handleDelete(emp)}
                                 disabled={deletingId !== null}
-                                className="p-1.5 text-red-500 border border-red-200 rounded-lg hover:bg-red-50 cursor-pointer disabled:opacity-40 sm:hidden"
+                                title={t("common.delete")}
+                                className="p-1.5 text-red-500 border border-red-200 rounded-lg hover:bg-red-50 cursor-pointer disabled:opacity-40"
                               >
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
-                              </button>
-                            )}
-                            {/* Desktop: text buttons */}
-                            {canWrite && (
-                              <>
-                                <button
-                                  onClick={() => startEdit(emp)}
-                                  disabled={deletingId !== null}
-                                  className="hidden sm:block px-2 py-1 text-cyan-600 border border-cyan-200 rounded-lg text-xs font-medium hover:bg-cyan-50 cursor-pointer disabled:opacity-40"
-                                >
-                                  {t("common.edit")}
-                                </button>
-                                {emp.user_id === null && (
-                                  <button
-                                    onClick={() => { setAttachEmployee(emp); setAttachState({ username: "", password: "", role: "employee" }); setAttachError(null); }}
-                                    disabled={deletingId !== null}
-                                    className="hidden sm:block px-2 py-1 text-purple-600 border border-purple-200 rounded-lg text-xs font-medium hover:bg-purple-50 cursor-pointer disabled:opacity-40"
-                                  >
-                                    {t("employees.attachUser")}
-                                  </button>
-                                )}
-                              </>
-                            )}
-                            {canDelete && (
-                              <button
-                                onClick={() => handleDelete(emp)}
-                                disabled={deletingId !== null}
-                                className="hidden sm:block px-2 py-1 text-red-500 border border-red-200 rounded-lg text-xs font-medium hover:bg-red-50 cursor-pointer disabled:opacity-40"
-                              >
-                                {deletingId === emp.id ? t("employees.deleting") : t("common.delete")}
                               </button>
                             )}
                           </div>

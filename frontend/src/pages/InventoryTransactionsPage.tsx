@@ -7,7 +7,7 @@ import { useToast } from "../contexts/ToastContext";
 import { listInventoryTransactions, reportDefect } from "../api/inventory-transactions";
 import { listProducts } from "../api/products";
 import { TransactionType, SourceType } from "../types";
-import type { InventoryTransaction, ITransactionLineCreate } from "../types";
+import type { InventoryTransaction } from "../types";
 
 interface LineItem {
   product_id: string;
