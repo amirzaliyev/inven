@@ -82,7 +82,13 @@ class InventoryTransactionService(BaseModelService[InventoryTransaction]):
             conditions.append(self.model.source_type == source_type)
 
         offset = (page - 1) * size
-        stmt = select(self.model).where(*conditions).offset(offset).limit(size)
+        stmt = (
+            select(self.model)
+            .where(*conditions)
+            .offset(offset)
+            .limit(size)
+            .order_by(self.model.transaction_date.desc(), self.model.id.desc())
+        )
         total_cnt = select(func.count()).select_from(self.model).where(*conditions)
 
         txns = (await self._session.scalars(stmt)).all()
