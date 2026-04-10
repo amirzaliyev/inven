@@ -7,6 +7,7 @@ class Settings(BaseSettings):
 
     # application
     debug: bool = True
+    currency: str = "UZS"
     master_admin_username: str
     master_admin_password: str
 

@@ -42,7 +42,11 @@ class Order(BaseModel):
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
+    customer: Mapped["Customer"] = relationship("Customer", lazy="selectin")
     items: Mapped[list["OrderItem"]] = relationship("OrderItem", back_populates="order")
+
+
+from .customers import Customer  # noqa: E402
 
 
 class OrderItem(BaseModel):

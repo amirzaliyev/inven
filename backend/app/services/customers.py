@@ -27,7 +27,7 @@ class CustomerService(BaseModelService[Customer]):
     async def list(
         self, page: int, size: int, search: str | None = None
     ) -> tuple[Sequence[Customer], int]:
-        conditions = []
+        conditions = [self.model.is_active == True]  # noqa: E712
 
         if search:
             pattern = f"%{search}%"

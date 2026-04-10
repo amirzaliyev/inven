@@ -15,6 +15,7 @@ def create_access_token(user: UserContext):
         "display_name": user.display_name,
         "username": user.username,
         "permissions": user.permissions,
+        "must_change_password": user.must_change_password,
         "iat": int(now.timestamp()),
         "exp": int(expires_at.timestamp()),
         "token_kind": "access",

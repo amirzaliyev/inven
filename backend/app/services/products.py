@@ -28,7 +28,7 @@ class ProductService(BaseModelService[Product]):
     async def list(
         self, page: int, size: int, search: str | None = None
     ) -> tuple[Sequence[Product], int]:
-        conditions = []
+        conditions = [self.model.is_active == True]  # noqa: E712
         if search:
             pattern = f"%{search}%"
             conditions.append(

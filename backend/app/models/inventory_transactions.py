@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import Date, Enum, ForeignKey, Integer, func
+from sqlalchemy import Date, Enum, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import BaseModel
@@ -18,6 +18,7 @@ class InventoryTransaction(BaseModel):
     )
     source_type: Mapped[SourceType] = mapped_column(Enum(SourceType), nullable=False)
     source_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    note: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     created_by_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True

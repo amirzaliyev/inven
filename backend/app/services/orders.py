@@ -3,18 +3,31 @@ from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.models.enums import OrderStatus
+from app.models.enums import OrderStatus, SourceType, TransactionType
 from app.models.orders import Order, OrderItem
 from app.schemas.auth import UserContext
+from app.schemas.inventory_transactions import (
+    InventoryTransactionCreate,
+    ITransactionLineCreate,
+)
 from app.schemas.orders import OrderCreate, OrderUpdate
 from app.services.exceptions import Conflict
 
 from .base import BaseModelService
+from .inventory_transactions import InventoryTransactionService
 
 
 class OrderService(BaseModelService[Order]):
     model = Order
+
+    def __init__(
+        self, session: AsyncSession, inventory_transactions: InventoryTransactionService
+    ):
+        super().__init__(session=session, auto_commit=False)
+        self._inv_transactions = inventory_transactions
 
     async def create(self, data: OrderCreate, user: UserContext) -> Order:
         total_amount = sum(item.price * item.quantity for item in data.items)
@@ -26,7 +39,6 @@ class OrderService(BaseModelService[Order]):
             "total_amount": total_amount,
         }
 
-        # _create commits (auto_commit is always True in base service)
         new_order = await self._create(order_data)
 
         for item_data in data.items:
@@ -79,7 +91,7 @@ class OrderService(BaseModelService[Order]):
         price_to: Decimal | None = None,
         customer_id: int | None = None,
     ) -> tuple[Sequence[Order], int]:
-        conditions = []
+        conditions = [self.model.is_active == True]  # noqa: E712
 
         if date_from:
             conditions.append(self.model.order_date >= date_from)
@@ -99,6 +111,7 @@ class OrderService(BaseModelService[Order]):
         stmt = (
             select(self.model)
             .where(*conditions)
+            .options(selectinload(self.model.items))
             .offset((page - 1) * size)
             .limit(size)
             .order_by(self.model.order_date.desc())
@@ -110,7 +123,7 @@ class OrderService(BaseModelService[Order]):
 
         return orders, total
 
-    async def complete_order(self, order_id: int) -> Order:
+    async def complete_order(self, order_id: int, user: UserContext) -> Order:
         order = await self.get(id=order_id)
 
         if order.status != OrderStatus.DRAFT:
@@ -119,12 +132,32 @@ class OrderService(BaseModelService[Order]):
                 message="Only DRAFT orders can be completed.",
             )
 
+        await self._session.refresh(order, ["items"])
+
         order.status = OrderStatus.COMPLETED
+        await self._session.flush()
+
+        await self._inv_transactions.create(
+            data=InventoryTransactionCreate(
+                transaction_date=date.today(),
+                transaction_type=TransactionType.DEBIT,
+                source_type=SourceType.SALES,
+                source_id=order.id,
+                lines=[
+                    ITransactionLineCreate(
+                        product_id=item.product_id, quantity=item.quantity
+                    )
+                    for item in order.items
+                ],
+            ),
+            user=user,
+        )
+
         await self._session.commit()
         await self._session.refresh(order, ["items"])
         return order
 
-    async def reset_order(self, order_id: int) -> Order:
+    async def reset_order(self, order_id: int, user: UserContext) -> Order:
         order = await self.get(id=order_id)
 
         if order.status == OrderStatus.DRAFT:
@@ -133,7 +166,28 @@ class OrderService(BaseModelService[Order]):
                 message="Order is already in DRAFT status.",
             )
 
+        was_completed = order.status == OrderStatus.COMPLETED
         order.status = OrderStatus.DRAFT
+        await self._session.flush()
+
+        if was_completed:
+            await self._session.refresh(order, ["items"])
+            await self._inv_transactions.create(
+                data=InventoryTransactionCreate(
+                    transaction_date=date.today(),
+                    transaction_type=TransactionType.CREDIT,
+                    source_type=SourceType.SALES,
+                    source_id=order.id,
+                    lines=[
+                        ITransactionLineCreate(
+                            product_id=item.product_id, quantity=item.quantity
+                        )
+                        for item in order.items
+                    ],
+                ),
+                user=user,
+            )
+
         await self._session.commit()
         await self._session.refresh(order, ["items"])
         return order

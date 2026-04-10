@@ -4,8 +4,10 @@ from datetime import date
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.batch_workers import BatchWorker
 from app.models.batches import Batch
 from app.models.enums import SourceType, TransactionType
+from app.models.subdivisions import SubDivisionMember
 from app.schemas.auth import UserContext
 from app.schemas.batches import BatchCreate, BatchUpdate
 from app.schemas.inventory_transactions import (
@@ -28,13 +30,37 @@ class BatchService(BaseModelService[Batch]):
         self._inv_transactions = inventory_transactions
 
     async def create(self, data: BatchCreate, user: UserContext) -> Batch:
-        batch_data = data.model_dump()
+        batch_data = data.model_dump(exclude={"absent_employee_ids"})
+        batch_data["created_by_id"] = user.id
+        new_batch = await self._create(batch_data)  # flushes
 
-        batch_data.update(created_by_id=user.id)
-        new_batch = await self._create(batch_data)
+        if data.subdivision_id:
+            await self._populate_attendance(
+                batch_id=new_batch.id,
+                subdivision_id=data.subdivision_id,
+                absent_ids=set(data.absent_employee_ids),
+            )
+
         await self._session.commit()
-
         return new_batch
+
+    async def _populate_attendance(
+        self, batch_id: int, subdivision_id: int, absent_ids: set[int]
+    ) -> None:
+        members = (
+            await self._session.scalars(
+                select(SubDivisionMember).where(
+                    SubDivisionMember.subdivision_id == subdivision_id,
+                    SubDivisionMember.is_active == True,  # noqa: E712
+                )
+            )
+        ).all()
+
+        for member in members:
+            if member.employee_id not in absent_ids:
+                self._session.add(
+                    BatchWorker(batch_id=batch_id, employee_id=member.employee_id)
+                )
 
     async def update(self, id: int, data: BatchUpdate, user: UserContext) -> Batch:
         """"""
@@ -53,7 +79,7 @@ class BatchService(BaseModelService[Batch]):
         return batch
 
     async def list(self, page: int = 1, size: int = 45) -> tuple[Sequence[Batch], int]:
-        conditions = []
+        conditions = [self.model.is_active == True]  # noqa: E712
 
         stmt = (
             select(self.model)
@@ -66,7 +92,7 @@ class BatchService(BaseModelService[Batch]):
                 self.model.created_at.desc(),
             )
         )
-        total_cnt = select(func.count()).select_from(self.model)
+        total_cnt = select(func.count()).select_from(self.model).where(*conditions)
 
         batches = (await self._session.scalars(stmt)).all()
         total = await self._session.scalar(total_cnt) or 0

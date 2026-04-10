@@ -1,8 +1,9 @@
 import logging
 import re
+from datetime import datetime, timezone
 from typing import Any, Generic, TypeVar
 
-from sqlalchemy import Column, FromClause, delete, select
+from sqlalchemy import Column, FromClause, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -64,6 +65,7 @@ class BaseModelService(Generic[ModelT]):
 
     async def get(self, **kwargs) -> ModelT:
         conditions = self._build_filters(**kwargs)
+        conditions.append(self.model.is_active == True)  # noqa: E712
         stmt = select(self.model).where(*conditions)
 
         obj = (await self._session.scalars(stmt)).one_or_none()
@@ -163,11 +165,8 @@ class BaseModelService(Generic[ModelT]):
 
     async def delete(self, **kwargs) -> None:
         obj = await self.get(**kwargs)
-
-        await self._has_dependent_rows(obj)
-
-        await self._session.execute(delete(self.model).where(self.model.id == obj.id))
-
+        obj.is_active = False
+        obj.deleted_at = datetime.now(timezone.utc)
         await self._commit_or_flush()
 
     def _build_filters(self, **kwargs):

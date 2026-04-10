@@ -16,3 +16,14 @@ class OrderStatus(Enum):
     DRAFT = "DRAFT"
     CANCELLED = "CANCELLED"
     COMPLETED = "COMPLETED"
+
+
+class PayrollStatus(Enum):
+    DRAFT = "DRAFT"
+    APPROVED = "APPROVED"
+    PAID = "PAID"
+
+
+class EmploymentType(Enum):
+    SALARY = "SALARY"
+    COMMISSION = "COMMISSION"

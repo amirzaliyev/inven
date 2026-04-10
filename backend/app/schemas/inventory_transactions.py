@@ -1,7 +1,7 @@
 import math
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from app.models.enums import SourceType, TransactionType
 
@@ -41,4 +41,15 @@ class InventoryTransactionCreate(BaseModel):
     transaction_type: TransactionType
     source_type: SourceType
     source_id: int
+    note: str | None = None
     lines: list[ITransactionLineCreate]
+
+
+class DefectLineCreate(BaseModel):
+    product_id: int
+    quantity: int = Field(gt=0)
+
+
+class DefectReportCreate(BaseModel):
+    note: str | None = Field(None, max_length=500)
+    lines: list[DefectLineCreate] = Field(min_length=1)

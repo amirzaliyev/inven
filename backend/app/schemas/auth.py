@@ -6,6 +6,7 @@ class TokenClaims(BaseModel):
     display_name: str
     username: str
     permissions: list[str]
+    must_change_password: bool = False
 
 
 class RefreshTokenClaims(BaseModel):
@@ -23,6 +24,11 @@ class UserCredentials(BaseModel):
     password: str
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
 class UserContext(BaseModel):
     id: int
     display_name: str
@@ -30,3 +36,4 @@ class UserContext(BaseModel):
     email: str | None = None
     phone_number: str | None = None
     permissions: list[str]
+    must_change_password: bool = False

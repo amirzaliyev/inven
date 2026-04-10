@@ -4,7 +4,7 @@ from decimal import Decimal
 from fastapi import Depends, Query, status
 from fastapi.routing import APIRouter
 
-from app.auth.dependencies import get_current_user
+from app.auth.permissions import Permission, require_permission
 from app.schemas.auth import UserContext
 from app.schemas.orders import Order, OrderCreate, OrderList, OrderUpdate
 from app.services.orders import OrderService
@@ -16,7 +16,7 @@ router = APIRouter()
 @router.post("", response_model=Order, status_code=status.HTTP_201_CREATED)
 async def create_order(
     data: OrderCreate,
-    user: UserContext = Depends(get_current_user),
+    user: UserContext = require_permission(Permission.ORDERS_WRITE),
     service: OrderService = Depends(get_order_service),
 ):
     return await service.create(data=data, user=user)
@@ -31,7 +31,7 @@ async def list_orders(
     date_to: date | None = Query(None),
     price_from: Decimal | None = Query(None),
     price_to: Decimal | None = Query(None),
-    current_user: UserContext = Depends(get_current_user),
+    _: UserContext = require_permission(Permission.ORDERS_READ),
     service: OrderService = Depends(get_order_service),
 ):
     orders, total = await service.list(
@@ -50,7 +50,7 @@ async def list_orders(
 async def update_order(
     order_id: int,
     data: OrderUpdate,
-    user: UserContext = Depends(get_current_user),
+    user: UserContext = require_permission(Permission.ORDERS_WRITE),
     service: OrderService = Depends(get_order_service),
 ):
     return await service.update(order_id=order_id, data=data, user=user)
@@ -59,25 +59,25 @@ async def update_order(
 @router.post("/{order_id}/complete", response_model=Order)
 async def complete_order(
     order_id: int,
-    user: UserContext = Depends(get_current_user),
+    user: UserContext = require_permission(Permission.ORDERS_COMPLETE),
     service: OrderService = Depends(get_order_service),
 ):
-    return await service.complete_order(order_id=order_id)
+    return await service.complete_order(order_id=order_id, user=user)
 
 
 @router.post("/{order_id}/reset", response_model=Order)
 async def reset_order(
     order_id: int,
-    user: UserContext = Depends(get_current_user),
+    user: UserContext = require_permission(Permission.ORDERS_WRITE),
     service: OrderService = Depends(get_order_service),
 ):
-    return await service.reset_order(order_id=order_id)
+    return await service.reset_order(order_id=order_id, user=user)
 
 
 @router.post("/{order_id}/cancel", response_model=Order)
 async def cancel_order(
     order_id: int,
-    user: UserContext = Depends(get_current_user),
+    _: UserContext = require_permission(Permission.ORDERS_WRITE),
     service: OrderService = Depends(get_order_service),
 ):
     return await service.cancel_order(order_id=order_id)

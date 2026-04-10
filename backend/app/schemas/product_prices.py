@@ -3,6 +3,8 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.config import settings
+
 
 class ProductPrice(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -10,6 +12,7 @@ class ProductPrice(BaseModel):
     id: int
     product_id: int
     price: Decimal
+    currency: str = settings.currency
     effective_from: date
     effective_to: date | None = None
     created_at: datetime

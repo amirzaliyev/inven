@@ -4,8 +4,6 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.auth.jwt import verify_access_token, verify_refresh_token
 from app.schemas.auth import RefreshTokenClaims, TokenClaims, UserContext
 from app.services.exceptions import UnAuthorized
-from app.services.users import UserService
-from app.svc_dependencies import get_user_service
 
 security = HTTPBearer()
 
@@ -29,16 +27,13 @@ def get_refresh_token_claims(request: Request) -> RefreshTokenClaims:
     return verify_refresh_token(token=refresh_token)
 
 
-async def get_current_user(
+def get_current_user(
     claims: TokenClaims = Depends(get_token_claims),
-    user_service: UserService = Depends(get_user_service),
 ) -> UserContext:
-    user = await user_service.get(id=claims.sub)
     return UserContext(
-        id=user.id,
-        display_name=user.display_name,
-        username=user.username,
-        email=user.email,
-        phone_number=user.phone_number,
-        permissions=[],
+        id=claims.sub,
+        display_name=claims.display_name,
+        username=claims.username,
+        permissions=claims.permissions,
+        must_change_password=claims.must_change_password,
     )

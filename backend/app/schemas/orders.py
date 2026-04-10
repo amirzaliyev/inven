@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
+from app.core.config import settings
 from app.models.enums import OrderStatus
 
 
@@ -16,6 +17,14 @@ class OrderItem(BaseModel):
     price: Decimal
 
 
+class OrderCustomer(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    full_name: str
+    phone_number: str | None = None
+
+
 class Order(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -23,7 +32,9 @@ class Order(BaseModel):
     status: OrderStatus
     order_date: date
     total_amount: Decimal
+    currency: str = settings.currency
     customer_id: int
+    customer: OrderCustomer | None = None
     items: list[OrderItem]
 
 

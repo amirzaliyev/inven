@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from datetime import date
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +10,11 @@ from app.models.inventory_transactions import (
     InventoryTransactionLine,
 )
 from app.schemas.auth import UserContext
-from app.schemas.inventory_transactions import InventoryTransactionCreate
+from app.schemas.inventory_transactions import (
+    DefectReportCreate,
+    InventoryTransactionCreate,
+    ITransactionLineCreate,
+)
 
 from .base import BaseModelService
 
@@ -36,13 +41,30 @@ class InventoryTransactionService(BaseModelService[InventoryTransaction]):
 
             txn.lines.append(ln)
 
-        # commit successful transaction to database
-        await self._session.commit()
+        # flush successful transaction to database
+        await self._commit_or_flush()
 
         return txn
 
-    async def update(self):
-        pass
+    async def report_defect(
+        self, data: DefectReportCreate, user: UserContext
+    ) -> InventoryTransaction:
+        return await self.create(
+            data=InventoryTransactionCreate(
+                transaction_date=date.today(),
+                transaction_type=TransactionType.DEBIT,
+                source_type=SourceType.DEFECT,
+                source_id=0,
+                note=data.note,
+                lines=[
+                    ITransactionLineCreate(
+                        product_id=line.product_id, quantity=line.quantity
+                    )
+                    for line in data.lines
+                ],
+            ),
+            user=user,
+        )
 
     async def list(
         self,
@@ -51,7 +73,7 @@ class InventoryTransactionService(BaseModelService[InventoryTransaction]):
         transaction_type: TransactionType | None = None,
         source_type: SourceType | None = None,
     ) -> tuple[Sequence[InventoryTransaction], int]:
-        conditions = []
+        conditions = [self.model.is_active == True]  # noqa: E712
 
         if transaction_type:
             conditions.append(self.model.transaction_type == transaction_type)
@@ -70,4 +92,4 @@ class InventoryTransactionService(BaseModelService[InventoryTransaction]):
 
     async def delete(self, **kwargs) -> None:
         await super().delete(**kwargs)
-        await self._session.commit()
+        await self._commit_or_flush()

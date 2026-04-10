@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
-from app.auth.dependencies import get_current_user
+from app.auth.permissions import Permission, require_permission
 from app.schemas.auth import UserContext
 from app.schemas.batches import Batch, BatchCreate, BatchList, BatchUpdate
 from app.services.batches import BatchService
@@ -12,7 +12,7 @@ router = APIRouter()
 @router.post("", response_model=Batch)
 async def report_batch(
     data: BatchCreate,
-    current_user: UserContext = Depends(get_current_user),
+    current_user: UserContext = require_permission(Permission.BATCHES_WRITE),
     service: BatchService = Depends(get_batch_service),
 ):
     return await service.create(data=data, user=current_user)
@@ -22,7 +22,7 @@ async def report_batch(
 async def list_batches(
     page: int = Query(1, ge=1),
     size: int = Query(10, le=100, ge=1),
-    current_user: UserContext = Depends(get_current_user),
+    _: UserContext = require_permission(Permission.BATCHES_READ),
     service: BatchService = Depends(get_batch_service),
 ):
     batches, total = await service.list(page=page, size=size)
@@ -38,7 +38,7 @@ async def list_batches(
 async def update_batch(
     batch_id: int,
     data: BatchUpdate,
-    current_user: UserContext = Depends(get_current_user),
+    current_user: UserContext = require_permission(Permission.BATCHES_WRITE),
     service: BatchService = Depends(get_batch_service),
 ):
     return await service.update(id=batch_id, data=data, user=current_user)
@@ -47,7 +47,7 @@ async def update_batch(
 @router.patch("/{batch_id}", response_model=Batch)
 async def confirm_batch(
     batch_id: int,
-    current_user: UserContext = Depends(get_current_user),
+    current_user: UserContext = require_permission(Permission.BATCHES_WRITE),
     service: BatchService = Depends(get_batch_service),
 ):
     return await service.confirm(batch_id=batch_id, user=current_user)
