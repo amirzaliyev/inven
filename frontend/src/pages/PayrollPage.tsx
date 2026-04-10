@@ -26,9 +26,16 @@ function statusLabel(status: string, t: (k: string) => string) {
   return t("payroll.statusDraft");
 }
 
+const UZ_MONTHS = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"];
+
 function formatPeriod(periodStart: string, lang: string): string {
   const date = new Date(periodStart + "T00:00:00");
-  return date.toLocaleDateString(lang === "uz" ? "uz" : "en", { year: "numeric", month: "long" });
+  const year = date.getFullYear();
+  const monthIndex = date.getMonth();
+  if (lang === "uz") {
+    return `${UZ_MONTHS[monthIndex]} ${year}`;
+  }
+  return date.toLocaleDateString("en", { year: "numeric", month: "short" });
 }
 
 export default function PayrollPage() {
@@ -253,7 +260,7 @@ export default function PayrollPage() {
                         )}
                         {p.status === "APPROVED" && canApprove && (
                           <button onClick={() => handleMarkPaid(p)} disabled={actionId === p.id}
-                            className="px-2.5 py-1 text-xs font-medium text-green-600 border border-green-200 rounded-lg hover:bg-green-50 cursor-pointer disabled:opacity-40">
+                            className="px-2.5 py-1 text-xs font-medium text-green-600 border border-green-200 rounded-lg hover:bg-green-50 cursor-pointer disabled:opacity-40 whitespace-nowrap">
                             {t("payroll.markPaidAction")}
                           </button>
                         )}
