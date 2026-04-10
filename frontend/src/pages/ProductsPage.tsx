@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { createProduct, deleteProduct, listProducts, updateProduct } from "../api/products";
-import type { Product } from "../types";
+import { createProduct, deleteProduct, listProducts, updateProduct, getProductCommissionRates, createCommissionRate, deleteCommissionRate } from "../api/products";
+import type { Product, CommissionRate } from "../types";
 import { useToast } from "../contexts/ToastContext";
 import { useConfirm } from "../contexts/ConfirmContext";
+import { useAuth } from "../contexts/AuthContext";
 import { Modal } from "../components/Modal";
+import { DateInput } from "../components/DateInput";
 
 interface EditState {
   name: string;
@@ -13,6 +15,8 @@ interface EditState {
 
 export default function ProductsPage() {
   const { t } = useTranslation();
+  const { hasPermission } = useAuth();
+  const canWriteProducts = hasPermission("products:write");
   const toast = useToast();
   const confirm = useConfirm();
 
@@ -34,7 +38,20 @@ export default function ProductsPage() {
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
+  const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
+
   const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  // Commission rates modal
+  const [ratesProduct, setRatesProduct] = useState<Product | null>(null);
+  const [rates, setRates] = useState<CommissionRate[]>([]);
+  const [ratesLoading, setRatesLoading] = useState(false);
+  const [newRate, setNewRate] = useState("");
+  const [newRateFrom, setNewRateFrom] = useState("");
+  const [newRateTo, setNewRateTo] = useState("");
+  const [rateSubmitting, setRateSubmitting] = useState(false);
+  const [rateErrors, setRateErrors] = useState<Record<string, string>>({});
+  const [rateDeletingId, setRateDeletingId] = useState<number | null>(null);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -60,12 +77,13 @@ export default function ProductsPage() {
     const trimmedName = name.trim();
     const trimmedSku = skuCode.trim();
 
-    if (!trimmedName || !trimmedSku) {
-      toast("error", t("products.validationRequired"));
-      return;
-    }
+    const errs: Record<string, string> = {};
+    if (!trimmedName) errs.name = t("products.validationRequired");
+    if (!trimmedSku) errs.sku_code = t("products.validationRequired");
+    if (Object.keys(errs).length) { setCreateErrors(errs); return; }
 
     setSubmitting(true);
+    setCreateErrors({});
     try {
       const created = await createProduct({ name: trimmedName, sku_code: trimmedSku });
       toast("success", t("products.createSuccess", { name: created.name }));
@@ -77,7 +95,7 @@ export default function ProductsPage() {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         t("products.createError");
-      toast("error", msg);
+      setCreateErrors({ api: msg });
     } finally {
       setSubmitting(false);
     }
@@ -137,6 +155,63 @@ export default function ProductsPage() {
       toast("error", msg);
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function openRates(product: Product) {
+    setRatesProduct(product);
+    setRatesLoading(true);
+    setRates([]);
+    try {
+      const data = await getProductCommissionRates(product.id);
+      setRates(data);
+    } catch {
+      toast("error", t("commissionRates.createError"));
+    } finally {
+      setRatesLoading(false);
+    }
+  }
+
+  async function handleAddRate(e: React.FormEvent) {
+    e.preventDefault();
+    const errs: Record<string, string> = {};
+    if (!ratesProduct) return;
+    if (!newRate) errs.rate = t("commissionRates.validationRequired");
+    if (!newRateFrom) errs.effective_from = t("commissionRates.validationRequired");
+    if (Object.keys(errs).length) { setRateErrors(errs); return; }
+    setRateSubmitting(true);
+    setRateErrors({});
+    try {
+      const created = await createCommissionRate(ratesProduct.id, {
+        rate_per_unit: Number(newRate),
+        effective_from: newRateFrom,
+        effective_to: newRateTo || null,
+      });
+      setRates(prev => [...prev, created]);
+      setNewRate(""); setNewRateFrom(""); setNewRateTo("");
+      toast("success", t("commissionRates.createSuccess"));
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? t("commissionRates.createError");
+      setRateErrors({ api: msg });
+    } finally {
+      setRateSubmitting(false);
+    }
+  }
+
+  async function handleDeleteRate(rateId: number) {
+    if (!ratesProduct) return;
+    const ok = await confirm({ message: t("commissionRates.deleteConfirm"), danger: true });
+    if (!ok) return;
+    setRateDeletingId(rateId);
+    try {
+      await deleteCommissionRate(ratesProduct.id, rateId);
+      setRates(prev => prev.filter(r => r.id !== rateId));
+      toast("success", t("commissionRates.deleteSuccess"));
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? t("commissionRates.deleteError");
+      toast("error", msg);
+    } finally {
+      setRateDeletingId(null);
     }
   }
 
@@ -220,8 +295,16 @@ export default function ProductsPage() {
                     <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
                       <span className="font-mono bg-bluegray-50 px-2 py-0.5 rounded text-xs">{product.sku_code}</span>
                     </td>
-                    <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
-                      <div className="flex gap-1.5">
+                    <td className="px-4 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
+                      <div className="flex gap-1.5 items-center">
+                        {canWriteProducts && (
+                          <button onClick={() => openRates(product)} title={t("commissionRates.title")}
+                            className="p-1.5 text-purple-600 border border-purple-200 rounded-lg hover:bg-purple-50 cursor-pointer">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                          </button>
+                        )}
                         {/* Mobile: icon only */}
                         <button onClick={() => startEdit(product)} disabled={deletingId !== null}
                           className="p-1.5 text-cyan-600 border border-cyan-200 rounded-lg hover:bg-cyan-50 cursor-pointer disabled:opacity-40 sm:hidden">
@@ -275,18 +358,21 @@ export default function ProductsPage() {
       </div>
 
       {/* Create modal */}
-      <Modal open={showCreateModal} onClose={() => { setShowCreateModal(false); setName(""); setSkuCode(""); }} title={t("products.addNew")}>
+      <Modal open={showCreateModal} onClose={() => { setShowCreateModal(false); setName(""); setSkuCode(""); setCreateErrors({}); }} title={t("products.addNew")}>
         <form onSubmit={async (e) => { await handleCreate(e); if (!submitting) setShowCreateModal(false); }} noValidate className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("products.nameLabel")}</label>
-            <input type="text" placeholder={t("products.namePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} disabled={submitting} className={inputCls} autoFocus />
+            <label className="text-sm font-medium text-bluegray-600">{t("products.nameLabel")} <span className="text-red-400">*</span></label>
+            <input type="text" placeholder={t("products.namePlaceholder")} value={name} onChange={(e) => { setName(e.target.value); setCreateErrors(prev => { const { name: _, ...rest } = prev; return rest; }); }} disabled={submitting} className={`${inputCls} ${createErrors.name ? "!border-red-400" : ""}`} autoFocus />
+            <p className="text-xs text-red-600 min-h-4">{createErrors.name ?? "\u00A0"}</p>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("products.skuLabel")}</label>
-            <input type="text" placeholder={t("products.skuPlaceholder")} value={skuCode} onChange={(e) => setSkuCode(e.target.value)} disabled={submitting} className={inputCls} />
+            <label className="text-sm font-medium text-bluegray-600">{t("products.skuLabel")} <span className="text-red-400">*</span></label>
+            <input type="text" placeholder={t("products.skuPlaceholder")} value={skuCode} onChange={(e) => { setSkuCode(e.target.value); setCreateErrors(prev => { const { sku_code: _, ...rest } = prev; return rest; }); }} disabled={submitting} className={`${inputCls} ${createErrors.sku_code ? "!border-red-400" : ""}`} />
+            <p className="text-xs text-red-600 min-h-4">{createErrors.sku_code ?? "\u00A0"}</p>
           </div>
+          {createErrors.api && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{createErrors.api}</p>}
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={() => { setShowCreateModal(false); setName(""); setSkuCode(""); }} className="px-4 py-2 rounded-xl text-sm font-medium text-bluegray-600 border border-bluegray-200 hover:bg-bluegray-50 cursor-pointer">
+            <button type="button" onClick={() => { setShowCreateModal(false); setName(""); setSkuCode(""); setCreateErrors({}); }} className="px-4 py-2 rounded-xl text-sm font-medium text-bluegray-600 border border-bluegray-200 hover:bg-bluegray-50 cursor-pointer">
               {t("common.cancel")}
             </button>
             <button type="submit" disabled={submitting} className={`px-5 py-2 rounded-xl text-sm font-semibold text-white ${submitting ? "bg-cyan-300 cursor-not-allowed" : "bg-cyan-500 hover:bg-cyan-600 cursor-pointer transition-colors"}`}>
@@ -317,6 +403,78 @@ export default function ProductsPage() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* Commission rates modal */}
+      <Modal open={ratesProduct !== null} onClose={() => { setRatesProduct(null); setNewRate(""); setNewRateFrom(""); setNewRateTo(""); setRateErrors({}); }} title={ratesProduct ? t("commissionRates.ratesFor", { name: ratesProduct.name }) : ""} size="lg">
+        {ratesLoading ? (
+          <div className="py-6 text-center text-sm text-bluegray-400">{t("common.loading")}</div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {rates.length === 0 ? (
+              <div className="py-4 text-center text-sm text-bluegray-400">{t("commissionRates.emptyList")}</div>
+            ) : (
+              <div className="border border-bluegray-200 rounded-xl overflow-hidden overflow-x-auto">
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr>
+                      <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase px-4 py-2 text-left">{t("commissionRates.effectiveFrom")}</th>
+                      <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase px-4 py-2 text-left">{t("commissionRates.effectiveTo")}</th>
+                      <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase px-4 py-2 text-right">{t("commissionRates.ratePerUnit")}</th>
+                      {canWriteProducts && <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase px-4 py-2 w-12"></th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rates.map(r => (
+                      <tr key={r.id} className="hover:bg-bluegray-50">
+                        <td className="px-4 py-2 text-bluegray-700 border-b border-bluegray-100">{r.effective_from}</td>
+                        <td className="px-4 py-2 text-bluegray-700 border-b border-bluegray-100">{r.effective_to ?? t("commissionRates.open")}</td>
+                        <td className="px-4 py-2 text-bluegray-700 border-b border-bluegray-100 text-right tabular-nums">{r.rate_per_unit}</td>
+                        {canWriteProducts && (
+                          <td className="px-4 py-2 border-b border-bluegray-100">
+                            <button onClick={() => handleDeleteRate(r.id)} disabled={rateDeletingId === r.id}
+                              className="p-1 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer disabled:opacity-40">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {canWriteProducts && (
+              <form onSubmit={handleAddRate} className="flex flex-col gap-3 pt-2 border-t border-bluegray-100">
+                <h4 className="text-xs font-semibold text-bluegray-500 uppercase tracking-wider">{t("commissionRates.addRate")}</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-bluegray-500">{t("commissionRates.ratePerUnit")} <span className="text-red-400">*</span></label>
+                    <input type="number" step="0.0001" value={newRate} onChange={e => { setNewRate(e.target.value); setRateErrors(prev => { const { rate: _, ...rest } = prev; return rest; }); }} className={`${inputCls} w-full ${rateErrors.rate ? "!border-red-400" : ""}`} disabled={rateSubmitting} />
+                    <p className="text-xs text-red-600 min-h-4">{rateErrors.rate ?? "\u00A0"}</p>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-bluegray-500">{t("commissionRates.effectiveFrom")} <span className="text-red-400">*</span></label>
+                    <DateInput value={newRateFrom} onChange={(v: string) => { setNewRateFrom(v); setRateErrors(prev => { const { effective_from: _, ...rest } = prev; return rest; }); }} className={`${inputCls} w-full ${rateErrors.effective_from ? "!border-red-400" : ""}`} />
+                    <p className="text-xs text-red-600 min-h-4">{rateErrors.effective_from ?? "\u00A0"}</p>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-bluegray-500">{t("commissionRates.effectiveTo")}</label>
+                    <DateInput value={newRateTo} onChange={setNewRateTo} className={`${inputCls} w-full`} />
+                  </div>
+                </div>
+                {rateErrors.api && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{rateErrors.api}</p>}
+                <div className="flex justify-end">
+                  <button type="submit" disabled={rateSubmitting} className={`px-4 py-2 rounded-xl text-sm font-semibold text-white ${rateSubmitting ? "bg-cyan-300 cursor-not-allowed" : "bg-cyan-500 hover:bg-cyan-600 cursor-pointer transition-colors"}`}>
+                    {rateSubmitting ? t("commissionRates.creating") : t("commissionRates.create")}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
       </Modal>
     </div>
   );

@@ -1,8 +1,10 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 import type { TokenResponse } from "../types";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 const client = axios.create({
-  baseURL: "http://localhost:8000",
+  baseURL: API_URL,
   withCredentials: true,
 });
 
@@ -20,7 +22,7 @@ let refreshPromise: Promise<TokenResponse> | null = null;
 async function refreshTokens(): Promise<TokenResponse> {
   // Refresh token is sent automatically via httpOnly cookie
   const { data } = await axios.post<TokenResponse>(
-    "http://localhost:8000/v1/auth/refresh",
+    `${API_URL}/v1/auth/refresh`,
     null,
     { withCredentials: true },
   );

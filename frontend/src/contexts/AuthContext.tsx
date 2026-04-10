@@ -11,19 +11,25 @@ interface JwtPayload {
   sub: string;
   display_name: string;
   username: string;
+  permissions: string[];
+  must_change_password: boolean;
 }
 
 interface AuthUser {
   sub: string;
   display_name: string;
   username: string;
+  permissions: string[];
+  must_change_password: boolean;
 }
 
 interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
+  hasPermission: (permission: string) => boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
+  updateToken: (token: string) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -68,9 +74,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }
 
+  function updateToken(token: string) {
+    localStorage.setItem("access_token", token);
+    const decoded = decodeJwt(token);
+    setUser(decoded);
+  }
+
+  function hasPermission(permission: string): boolean {
+    return user?.permissions?.includes(permission) ?? false;
+  }
+
   return (
     <AuthContext.Provider
-      value={{ user, isAuthenticated: user !== null, login, logout }}
+      value={{ user, isAuthenticated: user !== null, hasPermission, login, logout, updateToken }}
     >
       {children}
     </AuthContext.Provider>

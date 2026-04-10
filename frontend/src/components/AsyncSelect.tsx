@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
 export interface SelectOption {
@@ -35,11 +36,14 @@ export function AsyncSelect({
   const [loading, setLoading] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   // Keep fetchOptions stable inside effects without requiring parent to memoize
   const fetchRef = useRef(fetchOptions);
   fetchRef.current = fetchOptions;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
   async function doFetch(q: string) {
     setLoading(true);
@@ -53,12 +57,21 @@ export function AsyncSelect({
     }
   }
 
-  // On open: load initial options and auto-focus search
+  // On open: load initial options, compute position, and auto-focus search
   useEffect(() => {
     if (!open) return;
     setSearch("");
     doFetch("");
-    // Small timeout so the element is rendered before focusing
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setDropdownStyle({
+        position: "fixed",
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: Math.max(rect.width, 200),
+        zIndex: 9999,
+      });
+    }
     setTimeout(() => searchRef.current?.focus(), 0);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -83,7 +96,8 @@ export function AsyncSelect({
   useEffect(() => {
     if (!open) return;
     function onMouseDown(e: MouseEvent) {
-      if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (!containerRef.current?.contains(target) && !dropdownRef.current?.contains(target)) setOpen(false);
     }
     document.addEventListener("mousedown", onMouseDown);
     return () => document.removeEventListener("mousedown", onMouseDown);
@@ -110,6 +124,7 @@ export function AsyncSelect({
     <div ref={containerRef} className="relative">
       {/* Trigger button */}
       <button
+        ref={triggerRef}
         type="button"
         disabled={disabled}
         onClick={() => !disabled && setOpen((v) => !v)}
@@ -139,9 +154,9 @@ export function AsyncSelect({
         </span>
       </button>
 
-      {/* Dropdown */}
-      {open && (
-        <div className="absolute z-50 mt-1 left-0 right-0 min-w-[200px] bg-white rounded-2xl shadow-xl border border-bluegray-100 overflow-hidden">
+      {/* Dropdown (portal so it escapes overflow:hidden containers) */}
+      {open && createPortal(
+        <div ref={dropdownRef} style={dropdownStyle} className="bg-white rounded-2xl shadow-xl border border-bluegray-100 overflow-hidden">
           {/* Search input */}
           <div className="p-2 border-b border-bluegray-100">
             <input
@@ -177,7 +192,8 @@ export function AsyncSelect({
               ))
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

@@ -1,8 +1,17 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { useState } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
+import ForceChangePasswordModal from "./ForceChangePasswordModal";
 
-const navItems: { key: string; mobileKey?: string; to: string; end?: boolean; icon: React.ReactNode }[] = [
+const navItems: {
+  key: string;
+  mobileKey?: string;
+  to: string;
+  end?: boolean;
+  permission?: string;
+  icon: React.ReactNode;
+}[] = [
   {
     key: "nav.dashboard", to: "/", end: true,
     icon: (
@@ -51,18 +60,66 @@ const navItems: { key: string; mobileKey?: string; to: string; end?: boolean; ic
       </svg>
     ),
   },
+  {
+    key: "nav.subdivisions", to: "/subdivisions", permission: "employees:read",
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+      </svg>
+    ),
+  },
+  {
+    key: "nav.payroll", to: "/payroll", permission: "payroll:read",
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  {
+    key: "nav.employees", to: "/employees", permission: "employees:read",
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M20 14s-1 0-1 2v1h2v-1c0-2-1-2-1-2z" />
+      </svg>
+    ),
+  },
+  {
+    key: "nav.users", to: "/users", permission: "users:read",
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+      </svg>
+    ),
+  },
 ];
 
+const MAX_MOBILE_TABS = 5; // including "More"
+
 export default function Layout() {
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
   const { t, i18n } = useTranslation();
+  const [moreOpen, setMoreOpen] = useState(false);
+  const location = useLocation();
+
+  const visibleNavItems = navItems.filter(
+    (item) => !item.permission || hasPermission(item.permission),
+  );
+
+  const needsMore = visibleNavItems.length > MAX_MOBILE_TABS;
+  const primaryItems = needsMore ? visibleNavItems.slice(0, MAX_MOBILE_TABS - 1) : visibleNavItems;
+  const overflowItems = needsMore ? visibleNavItems.slice(MAX_MOBILE_TABS - 1) : [];
+  const isOverflowActive = overflowItems.some(
+    (item) => item.end ? location.pathname === item.to : location.pathname.startsWith(item.to),
+  );
 
   return (
     <div className="flex h-full min-h-screen bg-bluegray-50">
 
       {/* ── Desktop sidebar (hidden on mobile) ── */}
       <div className="hidden md:flex flex-shrink-0 flex-row p-4">
-        <div className="flex h-full w-56 flex-col rounded-3xl bg-cyan-500 px-3 py-5">
+        <div className="flex h-full w-60 flex-col rounded-3xl bg-cyan-500 px-3 py-5">
           {/* Logo */}
           <div className="mb-6 flex items-center justify-center">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-sm font-bold text-white">
@@ -72,14 +129,14 @@ export default function Layout() {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-1">
-            {navItems.map((item) => (
+          <nav className="flex-1 space-y-1 overflow-y-auto">
+            {visibleNavItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
                 end={item.end}
                 className={({ isActive }) =>
-                  `flex cursor-pointer items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                  `flex cursor-pointer items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors ${
                     isActive ? "bg-cyan-300 text-white shadow-sm" : "text-cyan-100 hover:bg-cyan-400"
                   }`
                 }
@@ -157,7 +214,7 @@ export default function Layout() {
       {/* ── Mobile bottom tab bar (hidden on desktop) ── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-bluegray-100 shadow-[0_-2px_12px_rgba(0,0,0,0.06)]">
         <div className="flex">
-          {navItems.map((item) => (
+          {primaryItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -173,13 +230,57 @@ export default function Layout() {
                   <span className={`transition-transform ${isActive ? "scale-110" : ""}`}>
                     {item.icon}
                   </span>
-                  <span className="leading-none">{t(item.mobileKey ?? item.key)}</span>
+                  <span className="leading-none truncate max-w-[4rem]">{t(item.mobileKey ?? item.key)}</span>
                 </>
               )}
             </NavLink>
           ))}
+
+          {/* "More" tab for overflow items */}
+          {needsMore && (
+            <div className="relative flex flex-1">
+              <button
+                onClick={() => setMoreOpen((v) => !v)}
+                className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors cursor-pointer ${
+                  isOverflowActive || moreOpen ? "text-cyan-600" : "text-bluegray-400"
+                }`}
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+                <span className="leading-none">{t("nav.more", "Yana")}</span>
+              </button>
+
+              {moreOpen && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setMoreOpen(false)} />
+                  <div className="absolute bottom-full right-0 mb-2 mr-1 z-40 min-w-[10rem] rounded-xl bg-white shadow-lg border border-bluegray-100 py-1">
+                    {overflowItems.map((item) => (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        end={item.end}
+                        onClick={() => setMoreOpen(false)}
+                        className={({ isActive }) =>
+                          `flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${
+                            isActive ? "text-cyan-600 bg-cyan-50" : "text-bluegray-600 hover:bg-bluegray-50"
+                          }`
+                        }
+                      >
+                        {item.icon}
+                        <span>{t(item.mobileKey ?? item.key)}</span>
+                      </NavLink>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </nav>
+
+      {/* Force password change overlay */}
+      <ForceChangePasswordModal />
 
     </div>
   );

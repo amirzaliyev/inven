@@ -1,5 +1,5 @@
 import client from "./client";
-import type { InventoryTransaction, InventoryTransactionCreate, InventoryTransactionList } from "../types";
+import type { DefectReportCreate, InventoryTransaction, InventoryTransactionCreate, InventoryTransactionList } from "../types";
 import { TransactionType, SourceType } from "../types";
 
 export async function createInventoryTransaction(
@@ -19,5 +19,10 @@ export async function listInventoryTransactions(
   if (transaction_type) params.transaction_type = transaction_type;
   if (source_type) params.source_type = source_type;
   const { data } = await client.get<InventoryTransactionList>("/v1/inventory-transactions", { params });
+  return data;
+}
+
+export async function reportDefect(payload: DefectReportCreate): Promise<InventoryTransaction> {
+  const { data } = await client.post<InventoryTransaction>("/v1/inventory-transactions/defects", payload);
   return data;
 }

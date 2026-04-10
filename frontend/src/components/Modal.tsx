@@ -32,7 +32,7 @@ export function Modal({ open, onClose, title, children, size = "md" }: Props) {
             </svg>
           </button>
         </div>
-        <div className="px-7 py-6">{children}</div>
+        <div className="px-7 py-6 overflow-y-auto max-h-[calc(100vh-10rem)]">{children}</div>
       </div>
     </div>
   );

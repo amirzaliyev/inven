@@ -56,11 +56,14 @@ export default function OrdersPage() {
 
   const [form, setForm] = useState<FormState>({ order_date: todayStr(), customer_id: "", items: [emptyItem()] });
   const [creating, setCreating] = useState(false);
+  const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const [editId, setEditId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<FormState>({ order_date: todayStr(), customer_id: "", items: [emptyItem()] });
+  const [editCustomerName, setEditCustomerName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [total, setTotal] = useState(0);
@@ -110,21 +113,23 @@ export default function OrdersPage() {
 
   useEffect(() => { loadOrders(); }, [loadOrders]);
 
-  function validateForm(f: FormState): string | null {
-    if (!f.customer_id) return t("orders.validationCustomer");
-    if (f.items.length === 0) return t("orders.validationItems");
+  function validateForm(f: FormState): Record<string, string> {
+    const errs: Record<string, string> = {};
+    if (!f.order_date) errs.order_date = t("orders.validationDate");
+    if (!f.customer_id) errs.customer_id = t("orders.validationCustomer");
     for (let i = 0; i < f.items.length; i++) {
       const n = i + 1;
-      if (!f.items[i].product_id) return t("orders.validationItemProduct", { n });
-      if (!f.items[i].quantity || Number(f.items[i].quantity) < 1) return t("orders.validationItemQty", { n });
-      if (!f.items[i].price || Number(f.items[i].price) <= 0) return t("orders.validationItemPrice", { n });
+      if (!f.items[i].product_id) errs[`item_${i}_product`] = t("orders.validationItemProduct", { n });
+      if (!f.items[i].quantity || Number(f.items[i].quantity) < 1) errs[`item_${i}_qty`] = t("orders.validationItemQty", { n });
+      if (!f.items[i].price || Number(f.items[i].price) <= 0) errs[`item_${i}_price`] = t("orders.validationItemPrice", { n });
     }
-    return null;
+    return errs;
   }
 
   async function handleCreate() {
-    const err = validateForm(form);
-    if (err) { toast("error", err); return; }
+    const errs = validateForm(form);
+    if (Object.keys(errs).length > 0) { setCreateErrors(errs); return; }
+    setCreateErrors({});
     setCreating(true);
     try {
       const payload = {
@@ -143,7 +148,7 @@ export default function OrdersPage() {
       setPage(1);
       loadOrders(1);
     } catch {
-      toast("error", t("orders.createError"));
+      setCreateErrors({ api: t("orders.createError") });
     } finally {
       setCreating(false);
     }
@@ -151,6 +156,7 @@ export default function OrdersPage() {
 
   function startEdit(order: Order) {
     setEditId(order.id);
+    setEditCustomerName(order.customer?.full_name ?? "");
     setEditForm({
       order_date: order.order_date,
       customer_id: order.customer_id,
@@ -164,8 +170,9 @@ export default function OrdersPage() {
 
   async function handleSave() {
     if (!editId) return;
-    const err = validateForm(editForm);
-    if (err) { toast("error", err); return; }
+    const errs = validateForm(editForm);
+    if (Object.keys(errs).length > 0) { setEditErrors(errs); return; }
+    setEditErrors({});
     setSaving(true);
     try {
       const payload = {
@@ -182,7 +189,7 @@ export default function OrdersPage() {
       setEditId(null);
       loadOrders();
     } catch {
-      toast("error", t("orders.updateError"));
+      setEditErrors({ api: t("orders.updateError") });
     } finally {
       setSaving(false);
     }
@@ -207,9 +214,17 @@ export default function OrdersPage() {
     }
   }
 
-  function updateFormItem(f: FormState, setF: (v: FormState) => void, idx: number, key: keyof FormItem, val: string) {
+  function updateFormItem(f: FormState, setF: (v: FormState) => void, idx: number, key: keyof FormItem, val: string, errors?: Record<string, string>, setErrors?: (v: Record<string, string>) => void) {
     const items = f.items.map((it, i) => i === idx ? { ...it, [key]: val === "" ? "" : key === "product_id" ? Number(val) : val } : it);
     setF({ ...f, items });
+    if (errors && setErrors) {
+      const errKey = key === "product_id" ? `item_${idx}_product` : key === "quantity" ? `item_${idx}_qty` : `item_${idx}_price`;
+      if (errors[errKey]) {
+        const next = { ...errors };
+        delete next[errKey];
+        setErrors(next);
+      }
+    }
   }
 
   function addItem(f: FormState, setF: (v: FormState) => void) {
@@ -226,11 +241,11 @@ export default function OrdersPage() {
 
   const inputCls = "px-3 py-2 border border-bluegray-200 rounded-xl text-sm outline-none focus:border-cyan-400 focus:shadow-sm bg-white";
 
-  function renderItemsForm(f: FormState, setF: (v: FormState) => void) {
+  function renderItemsForm(f: FormState, setF: (v: FormState) => void, errors: Record<string, string>, setErrors: (v: Record<string, string>) => void) {
     return (
       <div className="mt-3">
         {/* Column labels */}
-        <div className="grid grid-cols-[1fr_4rem_5rem_1.75rem] gap-2 mb-1 px-0.5">
+        <div className="hidden sm:grid grid-cols-[1fr_6rem_6rem_1.75rem] gap-2 mb-1 px-0.5">
           <span className="text-xs font-semibold text-bluegray-400 uppercase tracking-wider">{t("common.product")}</span>
           <span className="text-xs font-semibold text-bluegray-400 uppercase tracking-wider">{t("common.quantity")}</span>
           <span className="text-xs font-semibold text-bluegray-400 uppercase tracking-wider">{t("orders.price")}</span>
@@ -240,40 +255,47 @@ export default function OrdersPage() {
         {/* Item rows */}
         <div className="space-y-2">
           {f.items.map((it, idx) => (
-            <div key={idx} className="grid grid-cols-[1fr_4rem_5rem_1.75rem] gap-2 items-center">
-              <AsyncSelect
-                value={it.product_id}
-                onChange={(v) => updateFormItem(f, setF, idx, "product_id", v === "" ? "" : String(v))}
-                fetchOptions={fetchProductOptions}
-                placeholder={t("common.selectProduct")}
-                className={inputCls}
-              />
-              <input
-                type="number"
-                min={1}
-                value={it.quantity}
-                onChange={(e) => updateFormItem(f, setF, idx, "quantity", e.target.value)}
-                className={`${inputCls} w-full`}
-              />
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={it.price}
-                onChange={(e) => updateFormItem(f, setF, idx, "price", e.target.value)}
-                className={`${inputCls} w-full`}
-              />
-              {f.items.length > 1 ? (
-                <button
-                  type="button"
-                  onClick={() => removeItem(f, setF, idx)}
-                  className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              ) : <span />}
+            <div key={idx}>
+              <div className="flex flex-wrap sm:grid sm:grid-cols-[1fr_6rem_6rem_1.75rem] gap-2 items-center">
+                <div className="w-full sm:w-auto">
+                  <AsyncSelect
+                    value={it.product_id}
+                    onChange={(v) => updateFormItem(f, setF, idx, "product_id", v === "" ? "" : String(v), errors, setErrors)}
+                    fetchOptions={fetchProductOptions}
+                    placeholder={t("common.selectProduct")}
+                    className={`${inputCls}${errors[`item_${idx}_product`] ? " !border-red-400" : ""}`}
+                  />
+                </div>
+                <input
+                  type="number"
+                  min={1}
+                  value={it.quantity}
+                  onChange={(e) => updateFormItem(f, setF, idx, "quantity", e.target.value, errors, setErrors)}
+                  placeholder={t("common.quantity")}
+                  className={`${inputCls} flex-1 sm:flex-none sm:w-full min-w-0${errors[`item_${idx}_qty`] ? " !border-red-400" : ""}`}
+                />
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={it.price}
+                  onChange={(e) => updateFormItem(f, setF, idx, "price", e.target.value, errors, setErrors)}
+                  placeholder={t("orders.price")}
+                  className={`${inputCls} flex-1 sm:flex-none sm:w-full min-w-0${errors[`item_${idx}_price`] ? " !border-red-400" : ""}`}
+                />
+                {f.items.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => removeItem(f, setF, idx)}
+                    className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                ) : <span />}
+              </div>
+              <p className="text-xs text-red-500 min-h-4">{errors[`item_${idx}_product`] || errors[`item_${idx}_qty`] || errors[`item_${idx}_price`] || "\u00A0"}</p>
             </div>
           ))}
         </div>
@@ -304,36 +326,39 @@ export default function OrdersPage() {
       {/* Create modal */}
       <Modal
         open={showCreateModal}
-        onClose={() => { setShowCreateModal(false); setForm({ order_date: todayStr(), customer_id: "", items: [emptyItem()] }); }}
+        onClose={() => { setShowCreateModal(false); setCreateErrors({}); setForm({ order_date: todayStr(), customer_id: "", items: [emptyItem()] }); }}
         title={t("orders.newOrder")}
         size="lg"
       >
         <div className="flex flex-col gap-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-bluegray-600">{t("orders.orderDate")}</label>
+              <label className="text-xs font-medium text-bluegray-600">{t("orders.orderDate")} <span className="text-red-400">*</span></label>
               <DateInput
                 value={form.order_date}
-                onChange={(v) => setForm({ ...form, order_date: v })}
-                className={inputCls}
+                onChange={(v) => { setForm({ ...form, order_date: v }); if (createErrors.order_date) { const next = { ...createErrors }; delete next.order_date; setCreateErrors(next); } }}
+                className={`${inputCls}${createErrors.order_date ? " !border-red-400" : ""}`}
               />
+              {createErrors.order_date && <span className="text-xs text-red-500">{createErrors.order_date}</span>}
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-bluegray-600">{t("orders.customer")}</label>
+              <label className="text-xs font-medium text-bluegray-600">{t("orders.customer")} <span className="text-red-400">*</span></label>
               <AsyncSelect
                 value={form.customer_id}
-                onChange={(v) => setForm({ ...form, customer_id: v })}
+                onChange={(v) => { setForm({ ...form, customer_id: v }); if (createErrors.customer_id) { const next = { ...createErrors }; delete next.customer_id; setCreateErrors(next); } }}
                 fetchOptions={fetchCustomerOptions}
                 placeholder={t("orders.selectCustomer")}
-                className={inputCls}
+                className={`${inputCls}${createErrors.customer_id ? " !border-red-400" : ""}`}
               />
+              {createErrors.customer_id && <span className="text-xs text-red-500">{createErrors.customer_id}</span>}
             </div>
           </div>
-          {renderItemsForm(form, setForm)}
+          {renderItemsForm(form, setForm, createErrors, setCreateErrors)}
+          {createErrors.api && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{createErrors.api}</p>}
           <div className="flex justify-end gap-2 pt-4 border-t border-bluegray-100">
             <button
               className="px-4 py-2 bg-white text-bluegray-600 border border-bluegray-200 rounded-xl text-sm font-medium hover:bg-bluegray-50 cursor-pointer"
-              onClick={() => { setShowCreateModal(false); setForm({ order_date: todayStr(), customer_id: "", items: [emptyItem()] }); }}
+              onClick={() => { setShowCreateModal(false); setCreateErrors({}); setForm({ order_date: todayStr(), customer_id: "", items: [emptyItem()] }); }}
             >
               {t("orders.cancelEdit")}
             </button>
@@ -351,36 +376,40 @@ export default function OrdersPage() {
       {/* Edit modal */}
       <Modal
         open={editId !== null}
-        onClose={() => setEditId(null)}
+        onClose={() => { setEditId(null); setEditErrors({}); }}
         title={editId !== null ? t("orders.editTitle", { id: editId }) : ""}
         size="lg"
       >
         <div className="flex flex-col gap-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-bluegray-600">{t("orders.orderDate")}</label>
+              <label className="text-xs font-medium text-bluegray-600">{t("orders.orderDate")} <span className="text-red-400">*</span></label>
               <DateInput
                 value={editForm.order_date}
-                onChange={(v) => setEditForm({ ...editForm, order_date: v })}
-                className={inputCls}
+                onChange={(v) => { setEditForm({ ...editForm, order_date: v }); if (editErrors.order_date) { const next = { ...editErrors }; delete next.order_date; setEditErrors(next); } }}
+                className={`${inputCls}${editErrors.order_date ? " !border-red-400" : ""}`}
               />
+              {editErrors.order_date && <span className="text-xs text-red-500">{editErrors.order_date}</span>}
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-bluegray-600">{t("orders.customer")}</label>
+              <label className="text-xs font-medium text-bluegray-600">{t("orders.customer")} <span className="text-red-400">*</span></label>
               <AsyncSelect
                 value={editForm.customer_id}
-                onChange={(v) => setEditForm({ ...editForm, customer_id: v })}
+                onChange={(v) => { setEditForm({ ...editForm, customer_id: v }); setEditCustomerName(""); if (editErrors.customer_id) { const next = { ...editErrors }; delete next.customer_id; setEditErrors(next); } }}
                 fetchOptions={fetchCustomerOptions}
                 placeholder={t("orders.selectCustomer")}
-                className={inputCls}
+                displayValue={editCustomerName || undefined}
+                className={`${inputCls}${editErrors.customer_id ? " !border-red-400" : ""}`}
               />
+              {editErrors.customer_id && <span className="text-xs text-red-500">{editErrors.customer_id}</span>}
             </div>
           </div>
-          {renderItemsForm(editForm, setEditForm)}
+          {renderItemsForm(editForm, setEditForm, editErrors, setEditErrors)}
+          {editErrors.api && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{editErrors.api}</p>}
           <div className="flex justify-end gap-2 pt-4 border-t border-bluegray-100">
             <button
               className="px-4 py-2 bg-white text-bluegray-600 border border-bluegray-200 rounded-xl text-sm font-medium hover:bg-bluegray-50 cursor-pointer"
-              onClick={() => setEditId(null)}
+              onClick={() => { setEditId(null); setEditErrors({}); }}
             >
               {t("orders.cancelEdit")}
             </button>
@@ -462,7 +491,7 @@ export default function OrdersPage() {
                 <tr key={order.id}>
                   <td className="hidden sm:table-cell px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">#{order.id}</td>
                   <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">{formatDate(order.order_date, i18n.language)}</td>
-                  <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">#{order.customer_id}</td>
+                  <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">{order.customer?.full_name ?? `#${order.customer_id}`}</td>
                   <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">{Number(order.total_amount).toLocaleString()}</td>
                   <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">{statusBadge(order.status, t)}</td>
                   <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
