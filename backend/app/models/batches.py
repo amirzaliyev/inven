@@ -32,6 +32,12 @@ class Batch(BaseModel):
     )
 
     subdivision: Mapped["SubDivision | None"] = relationship("SubDivision", lazy="selectin")
+    product: Mapped["Product"] = relationship("Product", lazy="selectin")
+
+    @property
+    def product_name(self) -> str | None:
+        return self.product.name if self.product else None
 
 
+from .products import Product  # noqa: E402
 from .subdivisions import SubDivision  # noqa: E402

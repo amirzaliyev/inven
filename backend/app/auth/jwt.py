@@ -14,6 +14,7 @@ def create_access_token(user: UserContext):
         "sub": str(user.id),
         "display_name": user.display_name,
         "username": user.username,
+        "role": user.role,
         "permissions": user.permissions,
         "must_change_password": user.must_change_password,
         "iat": int(now.timestamp()),

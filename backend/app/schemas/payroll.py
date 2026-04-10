@@ -37,6 +37,7 @@ class PayslipResponse(BaseModel):
     id: int
     payroll_id: int
     employee_id: int
+    employee_name: str | None = None
     base_salary: Decimal
     commission_amount: Decimal
     total_amount: Decimal
@@ -49,6 +50,7 @@ class PayslipSummary(BaseModel):
 
     id: int
     employee_id: int
+    employee_name: str | None = None
     base_salary: Decimal
     commission_amount: Decimal
     total_amount: Decimal

@@ -33,3 +33,11 @@ class SubDivisionMember(BaseModel):
     subdivision: Mapped["SubDivision"] = relationship(
         "SubDivision", back_populates="members"
     )
+    employee: Mapped["Employee"] = relationship("Employee", lazy="selectin")
+
+    @property
+    def employee_name(self) -> str | None:
+        return self.employee.full_name if self.employee else None
+
+
+from .employees import Employee  # noqa: E402

@@ -40,6 +40,7 @@ export interface Batch {
   id: number;
   batch_date: string;
   product_id: number;
+  product_name?: string;
   quantity: number;
   is_confirmed: boolean;
   subdivision_id: number | null;
@@ -378,6 +379,7 @@ export interface CommissionLine {
 export interface Payslip {
   id: number;
   employee_id: number;
+  employee_name?: string;
   base_salary: number;
   commission_amount: number;
   total_amount: number;

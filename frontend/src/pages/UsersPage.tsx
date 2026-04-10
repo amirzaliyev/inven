@@ -66,10 +66,11 @@ export default function UsersPage() {
   const { t } = useTranslation();
   const toast = useToast();
   const confirm = useConfirm();
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
 
   const canRead = hasPermission("users:read");
   const canWrite = hasPermission("users:write");
+  const isMasterAdmin = user?.role === "master_admin";
 
   // List state
   const [users, setUsers] = useState<UserResponse[]>([]);
@@ -217,9 +218,8 @@ export default function UsersPage() {
     setDeletingId(u.id);
     try {
       await deleteUser(u.id);
-      setUsers((prev) => prev.filter((x) => x.id !== u.id));
-      setTotal((n) => n - 1);
       toast("success", t("users.deleteSuccess"));
+      await fetchUsers();
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
@@ -234,6 +234,7 @@ export default function UsersPage() {
     e.preventDefault();
     if (!resetUser) return;
     if (!newPassword) { setResetErrors({ password: t("users.validationRequired") }); return; }
+    if (newPassword.length < 8) { setResetErrors({ password: t("users.passwordMinLength") }); return; }
     setResetErrors({});
     setResetSubmitting(true);
     try {
@@ -372,7 +373,7 @@ export default function UsersPage() {
             <span className="text-sm font-semibold text-bluegray-700">{t("users.listTitle")}</span>
             <span className="bg-cyan-50 text-cyan-700 text-xs font-semibold px-2 py-0.5 rounded-full">{total}</span>
           </div>
-          {canWrite && (
+          {isMasterAdmin && (
             <button
               onClick={() => setShowCreateModal(true)}
               className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl text-xs font-semibold cursor-pointer transition-colors"
@@ -492,6 +493,7 @@ export default function UsersPage() {
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                               </svg>
                             </button>
+                            {u.role !== "master_admin" && (
                             <button
                               onClick={() => handleDelete(u)}
                               disabled={deletingId !== null}
@@ -503,6 +505,7 @@ export default function UsersPage() {
                                 : <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                               }
                             </button>
+                            )}
                           </div>
                         </td>
                       )}
@@ -538,7 +541,7 @@ export default function UsersPage() {
 
       {/* Create modal */}
       <Modal
-        open={canWrite && showCreateModal}
+        open={isMasterAdmin && showCreateModal}
         onClose={() => {
           setShowCreateModal(false);
           setCreateErrors({});

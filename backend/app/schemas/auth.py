@@ -1,10 +1,11 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class TokenClaims(BaseModel):
     sub: int
     display_name: str
     username: str
+    role: str = "employee"
     permissions: list[str]
     must_change_password: bool = False
 
@@ -26,13 +27,14 @@ class UserCredentials(BaseModel):
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
-    new_password: str
+    new_password: str = Field(min_length=8)
 
 
 class UserContext(BaseModel):
     id: int
     display_name: str
     username: str
+    role: str = "employee"
     email: str | None = None
     phone_number: str | None = None
     permissions: list[str]

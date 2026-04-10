@@ -1,7 +1,8 @@
-from fastapi import Depends, Query, status
+from fastapi import Depends, HTTPException, Query, status
 from fastapi.routing import APIRouter
 
 from app.auth.permissions import Permission, require_permission
+from app.models.users import UserRole
 from app.schemas.auth import UserContext
 from app.schemas.users import (
     AdminPasswordReset,
@@ -10,6 +11,7 @@ from app.schemas.users import (
     UserResponse,
     UserUpdate,
 )
+from app.services.exceptions import Forbidden
 from app.services.users import UserService
 from app.svc_dependencies import get_user_service
 
@@ -32,9 +34,14 @@ async def list_users(
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(
     data: UserCreate,
-    _: UserContext = require_permission(Permission.USERS_WRITE),
+    current_user: UserContext = require_permission(Permission.USERS_WRITE),
     service: UserService = Depends(get_user_service),
 ):
+    if current_user.role != "master_admin":
+        raise Forbidden(
+            code="master_admin_required",
+            message="Only master_admin users can create new users.",
+        )
     return await service.create_user(data=data)
 
 
@@ -60,9 +67,15 @@ async def update_user(
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def deactivate_user(
     user_id: int,
-    _: UserContext = require_permission(Permission.USERS_WRITE),
+    current_user: UserContext = require_permission(Permission.USERS_WRITE),
     service: UserService = Depends(get_user_service),
 ):
+    user = await service.get(id=user_id)
+    if user.role == UserRole.MASTER_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot delete master admin user.",
+        )
     await service.delete(id=user_id)
 
 

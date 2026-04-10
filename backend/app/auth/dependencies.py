@@ -34,6 +34,7 @@ def get_current_user(
         id=claims.sub,
         display_name=claims.display_name,
         username=claims.username,
+        role=claims.role,
         permissions=claims.permissions,
         must_change_password=claims.must_change_password,
     )

@@ -11,6 +11,7 @@ interface JwtPayload {
   sub: string;
   display_name: string;
   username: string;
+  role: string;
   permissions: string[];
   must_change_password: boolean;
 }
@@ -19,6 +20,7 @@ interface AuthUser {
   sub: string;
   display_name: string;
   username: string;
+  role: string;
   permissions: string[];
   must_change_password: boolean;
 }

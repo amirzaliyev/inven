@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 import { formatDate } from "../utils/date";
 import { AsyncSelect } from "../components/AsyncSelect";
 import { Modal } from "../components/Modal";
@@ -19,14 +20,26 @@ const emptyLine = (): LineItem => ({ product_id: "", quantity: "" });
 export default function InventoryTransactionsPage() {
   const { t, i18n } = useTranslation();
   const toast = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const listPage = Number(searchParams.get("page")) || 1;
+  const pageSize = Number(searchParams.get("size")) || 10;
+  const filterType = (searchParams.get("type") || "") as TransactionType | "";
+  const filterSource = (searchParams.get("source") || "") as SourceType | "";
 
   const [txns, setTxns] = useState<InventoryTransaction[]>([]);
-  const [listPage, setListPage] = useState(1);
   const [listTotalPages, setListTotalPages] = useState(1);
   const [listTotal, setListTotal] = useState(0);
   const [listLoading, setListLoading] = useState(true);
-  const [filterType, setFilterType] = useState<TransactionType | "">("");
-  const [filterSource, setFilterSource] = useState<SourceType | "">("");
+
+  function updateParams(updates: Record<string, string>) {
+    const params = new URLSearchParams(searchParams);
+    for (const [k, v] of Object.entries(updates)) {
+      if (v) params.set(k, v);
+      else params.delete(k);
+    }
+    setSearchParams(params);
+  }
 
   // Defect modal
   const [showDefectModal, setShowDefectModal] = useState(false);
@@ -40,7 +53,7 @@ export default function InventoryTransactionsPage() {
     try {
       const result = await listInventoryTransactions(
         listPage,
-        10,
+        pageSize,
         filterType || undefined,
         filterSource || undefined
       );
@@ -52,7 +65,7 @@ export default function InventoryTransactionsPage() {
     } finally {
       setListLoading(false);
     }
-  }, [listPage, filterType, filterSource]);
+  }, [listPage, pageSize, filterType, filterSource]);
 
   const fetchProductOptions = useCallback(
     (q: string) => listProducts(1, 50, q || undefined).then((r) => r.items.map((p) => ({ value: p.id, label: `${p.name} (${p.sku_code})` }))),
@@ -81,7 +94,7 @@ export default function InventoryTransactionsPage() {
       toast("success", t("transactions.defectSuccess", { id: result.id }));
       setShowDefectModal(false);
       setDefectNote(""); setDefectLines([emptyLine()]);
-      setListPage(1);
+      updateParams({ page: "1" });
       fetchTransactions();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? t("transactions.unexpectedError");
@@ -121,7 +134,7 @@ export default function InventoryTransactionsPage() {
         <div className="flex gap-2.5 px-5 py-3">
           <select
             value={filterType}
-            onChange={(e) => { setFilterType(e.target.value as TransactionType | ""); setListPage(1); }}
+            onChange={(e) => updateParams({ type: e.target.value, page: "1" })}
             className={`flex-1 ${inputCls}`}
           >
             <option value="">{t("transactions.allTypes")}</option>
@@ -130,7 +143,7 @@ export default function InventoryTransactionsPage() {
           </select>
           <select
             value={filterSource}
-            onChange={(e) => { setFilterSource(e.target.value as SourceType | ""); setListPage(1); }}
+            onChange={(e) => updateParams({ source: e.target.value, page: "1" })}
             className={`flex-1 ${inputCls}`}
           >
             <option value="">{t("transactions.allSources")}</option>
@@ -179,31 +192,43 @@ export default function InventoryTransactionsPage() {
               </tbody>
             </table></div>
 
-            {listTotalPages > 1 && (
-              <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-bluegray-100 text-sm text-bluegray-500">
+            <div className="flex items-center justify-between gap-2 flex-wrap px-4 py-3 border-t border-bluegray-100 text-sm text-bluegray-500">
+              <span className="text-xs">{t("common.pageOf", { page: listPage, total: listTotalPages })}</span>
+              <div className="flex items-center gap-2">
+                <label className="hidden sm:flex text-xs text-bluegray-500 items-center gap-1">
+                  {t("common.perPage")}
+                  <select
+                    value={pageSize}
+                    onChange={(e) => updateParams({ page: "1", size: e.target.value })}
+                    className="ml-1 px-2 py-1 border border-bluegray-200 rounded-lg text-xs bg-white outline-none"
+                  >
+                    {[10, 20, 50, 100].map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </label>
                 <button
                   className={`px-3 py-1.5 border rounded-lg text-sm cursor-pointer ${
                     listPage <= 1 ? "bg-bluegray-50 text-bluegray-300 border-bluegray-100 cursor-not-allowed" : "bg-white text-bluegray-700 border-bluegray-200 hover:bg-bluegray-50"
                   }`}
-                  onClick={() => setListPage((p) => p - 1)}
+                  onClick={() => updateParams({ page: String(listPage - 1) })}
                   disabled={listPage <= 1}
                 >
                   <span className="sm:hidden">&larr;</span>
                   <span className="hidden sm:inline">&larr; {t("common.previous")}</span>
                 </button>
-                <span className="text-xs">{t("common.pageOf", { page: listPage, total: listTotalPages })}</span>
                 <button
                   className={`px-3 py-1.5 border rounded-lg text-sm cursor-pointer ${
                     listPage >= listTotalPages ? "bg-bluegray-50 text-bluegray-300 border-bluegray-100 cursor-not-allowed" : "bg-white text-bluegray-700 border-bluegray-200 hover:bg-bluegray-50"
                   }`}
-                  onClick={() => setListPage((p) => p + 1)}
+                  onClick={() => updateParams({ page: String(listPage + 1) })}
                   disabled={listPage >= listTotalPages}
                 >
                   <span className="sm:hidden">&rarr;</span>
                   <span className="hidden sm:inline">{t("common.next")} &rarr;</span>
                 </button>
               </div>
-            )}
+            </div>
           </>
         )}
       </div>

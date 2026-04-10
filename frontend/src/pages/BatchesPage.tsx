@@ -263,13 +263,6 @@ export default function BatchesPage() {
         </td>
         <td className="hidden sm:table-cell px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">—</td>
         <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
-          <span className={`inline-block px-2.5 py-0.5 text-xs font-bold rounded-full uppercase tracking-wide ${
-            batch.is_confirmed ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
-          }`}>
-            {batch.is_confirmed ? t("batches.confirmed") : t("batches.pending")}
-          </span>
-        </td>
-        <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
           <div className="flex flex-col gap-1.5">
             <div className="flex gap-2 flex-wrap">
               <button
@@ -306,7 +299,7 @@ export default function BatchesPage() {
           {formatDate(batch.batch_date, i18n.language)}
         </td>
         <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
-          {`#${batch.product_id}`}
+          {batch.product_name ?? `#${batch.product_id}`}
         </td>
         <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100 tabular-nums">
           {batch.quantity.toLocaleString()}
@@ -415,7 +408,7 @@ export default function BatchesPage() {
                       }}
                       className="w-4 h-4 rounded accent-cyan-500"
                     />
-                    Employee #{m.employee_id}
+                    {m.employee_name ?? `#${m.employee_id}`}
                   </label>
                 ))}
               </div>

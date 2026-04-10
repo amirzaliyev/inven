@@ -45,6 +45,12 @@ class Payslip(BaseModel):
     total_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
 
     payroll: Mapped["Payroll"] = relationship("Payroll", back_populates="payslips")
+    employee: Mapped["Employee"] = relationship("Employee", lazy="selectin")
+
+    @property
+    def employee_name(self) -> str | None:
+        return self.employee.full_name if self.employee else None
+
     commission_lines: Mapped[list["PayslipCommissionLine"]] = relationship(
         "PayslipCommissionLine", back_populates="payslip"
     )
@@ -73,3 +79,6 @@ class PayslipCommissionLine(BaseModel):
     amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
 
     payslip: Mapped["Payslip"] = relationship("Payslip", back_populates="commission_lines")
+
+
+from .employees import Employee  # noqa: E402

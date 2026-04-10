@@ -4,7 +4,6 @@ import { useToast } from "../contexts/ToastContext";
 import { useConfirm } from "../contexts/ConfirmContext";
 import { useAuth } from "../contexts/AuthContext";
 import { Modal } from "../components/Modal";
-import { DateInput } from "../components/DateInput";
 import {
   generatePayroll,
   listPayroll,
@@ -27,8 +26,13 @@ function statusLabel(status: string, t: (k: string) => string) {
   return t("payroll.statusDraft");
 }
 
+function formatPeriod(periodStart: string, lang: string): string {
+  const date = new Date(periodStart + "T00:00:00");
+  return date.toLocaleDateString(lang === "uz" ? "uz" : "en", { year: "numeric", month: "long" });
+}
+
 export default function PayrollPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const toast = useToast();
   const confirm = useConfirm();
   const { hasPermission } = useAuth();
@@ -46,8 +50,7 @@ export default function PayrollPage() {
 
   // Generate modal
   const [showGenerateModal, setShowGenerateModal] = useState(false);
-  const [periodStart, setPeriodStart] = useState("");
-  const [periodEnd, setPeriodEnd] = useState("");
+  const [periodMonth, setPeriodMonth] = useState("");
   const [generating, setGenerating] = useState(false);
   const [generateErrors, setGenerateErrors] = useState<Record<string, string>>({});
 
@@ -81,15 +84,19 @@ export default function PayrollPage() {
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault();
     const errs: Record<string, string> = {};
-    if (!periodStart) errs.period_start = t("payroll.validationRequired");
-    if (!periodEnd) errs.period_end = t("payroll.validationRequired");
+    if (!periodMonth) errs.month = t("payroll.validationRequired");
     if (Object.keys(errs).length) { setGenerateErrors(errs); return; }
     setGenerating(true);
     setGenerateErrors({});
     try {
+      // Derive period_start (first day) and period_end (last day) from yyyy-MM
+      const [year, month] = periodMonth.split("-").map(Number);
+      const periodStart = `${periodMonth}-01`;
+      const lastDay = new Date(year, month, 0).getDate();
+      const periodEnd = `${periodMonth}-${String(lastDay).padStart(2, "0")}`;
       await generatePayroll({ period_start: periodStart, period_end: periodEnd });
       toast("success", t("payroll.generateSuccess"));
-      setPeriodStart(""); setPeriodEnd("");
+      setPeriodMonth("");
       setShowGenerateModal(false);
       fetchPayrolls();
     } catch (err: unknown) {
@@ -224,7 +231,7 @@ export default function PayrollPage() {
                 {payrolls.map(p => (
                   <tr key={p.id} className="hover:bg-bluegray-50">
                     <td className="hidden sm:table-cell px-5 py-3 text-sm text-bluegray-400 border-b border-bluegray-100">#{p.id}</td>
-                    <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">{p.period_start} — {p.period_end}</td>
+                    <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">{formatPeriod(p.period_start, i18n.language)}</td>
                     <td className="px-5 py-3 border-b border-bluegray-100">
                       <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${statusBadge(p.status)}`}>
                         {statusLabel(p.status, t)}
@@ -234,27 +241,20 @@ export default function PayrollPage() {
                     <td className="hidden sm:table-cell px-5 py-3 text-sm text-bluegray-500 border-b border-bluegray-100 text-right">{p.payslip_count}</td>
                     <td className="px-4 py-3 border-b border-bluegray-100">
                       <div className="flex gap-1.5 items-center">
-                        <button onClick={() => handleView(p)} title={t("payroll.view")}
-                          className="p-1.5 text-bluegray-600 border border-bluegray-200 rounded-lg hover:bg-bluegray-50 cursor-pointer">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
+                        <button onClick={() => handleView(p)}
+                          className="px-2.5 py-1 text-xs font-medium text-bluegray-600 border border-bluegray-200 rounded-lg hover:bg-bluegray-50 cursor-pointer">
+                          {t("payroll.view")}
                         </button>
                         {p.status === "DRAFT" && canApprove && (
-                          <button onClick={() => handleApprove(p)} disabled={actionId === p.id} title={t("payroll.approve")}
-                            className="p-1.5 text-cyan-600 border border-cyan-200 rounded-lg hover:bg-cyan-50 cursor-pointer disabled:opacity-40">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
+                          <button onClick={() => handleApprove(p)} disabled={actionId === p.id}
+                            className="px-2.5 py-1 text-xs font-medium text-cyan-600 border border-cyan-200 rounded-lg hover:bg-cyan-50 cursor-pointer disabled:opacity-40">
+                            {t("payroll.approveAction")}
                           </button>
                         )}
                         {p.status === "APPROVED" && canApprove && (
-                          <button onClick={() => handleMarkPaid(p)} disabled={actionId === p.id} title={t("payroll.markPaid")}
-                            className="p-1.5 text-green-600 border border-green-200 rounded-lg hover:bg-green-50 cursor-pointer disabled:opacity-40">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 10v1" />
-                            </svg>
+                          <button onClick={() => handleMarkPaid(p)} disabled={actionId === p.id}
+                            className="px-2.5 py-1 text-xs font-medium text-green-600 border border-green-200 rounded-lg hover:bg-green-50 cursor-pointer disabled:opacity-40">
+                            {t("payroll.markPaidAction")}
                           </button>
                         )}
                       </div>
@@ -279,21 +279,16 @@ export default function PayrollPage() {
       </div>
 
       {/* Generate modal */}
-      <Modal open={canGenerate && showGenerateModal} onClose={() => { setShowGenerateModal(false); setPeriodStart(""); setPeriodEnd(""); setGenerateErrors({}); }} title={t("payroll.generateTitle")}>
+      <Modal open={canGenerate && showGenerateModal} onClose={() => { setShowGenerateModal(false); setPeriodMonth(""); setGenerateErrors({}); }} title={t("payroll.generateTitle")}>
         <form onSubmit={handleGenerate} noValidate className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("payroll.periodStart")} <span className="text-red-400">*</span></label>
-            <DateInput value={periodStart} onChange={(v: string) => { setPeriodStart(v); setGenerateErrors(prev => { const { period_start: _, ...rest } = prev; return rest; }); }} className={`${inputCls} ${generateErrors.period_start ? "!border-red-400" : ""}`} />
-            <p className="text-xs text-red-600 min-h-4">{generateErrors.period_start ?? "\u00A0"}</p>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("payroll.periodEnd")} <span className="text-red-400">*</span></label>
-            <DateInput value={periodEnd} onChange={(v: string) => { setPeriodEnd(v); setGenerateErrors(prev => { const { period_end: _, ...rest } = prev; return rest; }); }} className={`${inputCls} ${generateErrors.period_end ? "!border-red-400" : ""}`} />
-            <p className="text-xs text-red-600 min-h-4">{generateErrors.period_end ?? "\u00A0"}</p>
+            <label className="text-sm font-medium text-bluegray-600">{t("payroll.month")} <span className="text-red-400">*</span></label>
+            <input type="month" value={periodMonth} onChange={(e) => { setPeriodMonth(e.target.value); setGenerateErrors(prev => { const { month: _, ...rest } = prev; return rest; }); }} className={`${inputCls} ${generateErrors.month ? "!border-red-400" : ""}`} />
+            <p className="text-xs text-red-600 min-h-4">{generateErrors.month ?? "\u00A0"}</p>
           </div>
           {generateErrors.api && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{generateErrors.api}</p>}
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={() => { setShowGenerateModal(false); setPeriodStart(""); setPeriodEnd(""); setGenerateErrors({}); }} className="px-4 py-2 rounded-xl text-sm font-medium text-bluegray-600 border border-bluegray-200 hover:bg-bluegray-50 cursor-pointer">{t("common.cancel")}</button>
+            <button type="button" onClick={() => { setShowGenerateModal(false); setPeriodMonth(""); setGenerateErrors({}); }} className="px-4 py-2 rounded-xl text-sm font-medium text-bluegray-600 border border-bluegray-200 hover:bg-bluegray-50 cursor-pointer">{t("common.cancel")}</button>
             <button type="submit" disabled={generating} className={`px-5 py-2 rounded-xl text-sm font-semibold text-white ${generating ? "bg-cyan-300 cursor-not-allowed" : "bg-cyan-500 hover:bg-cyan-600 cursor-pointer transition-colors"}`}>
               {generating ? t("payroll.generating") : t("payroll.generate")}
             </button>
@@ -302,7 +297,7 @@ export default function PayrollPage() {
       </Modal>
 
       {/* View payroll modal */}
-      <Modal open={viewPayroll !== null} onClose={() => { setViewPayroll(null); setDetailPayslip(null); }} title={viewPayroll ? t("payroll.viewTitle", { id: viewPayroll.id, start: viewPayroll.period_start, end: viewPayroll.period_end }) : ""}>
+      <Modal open={viewPayroll !== null} onClose={() => { setViewPayroll(null); setDetailPayslip(null); }} title={viewPayroll ? t("payroll.viewTitle", { id: viewPayroll.id, period: formatPeriod(viewPayroll.period_start, i18n.language) }) : ""}>
         {viewLoading ? (
           <div className="py-8 text-center text-sm text-bluegray-400">{t("common.loading")}</div>
         ) : viewPayroll && (
@@ -329,7 +324,7 @@ export default function PayrollPage() {
                   <tbody>
                     {viewPayroll.payslips.map(ps => (
                       <tr key={ps.id} className="hover:bg-bluegray-50">
-                        <td className="px-4 py-2 text-bluegray-700 border-b border-bluegray-100">#{ps.employee_id}</td>
+                        <td className="px-4 py-2 text-bluegray-700 border-b border-bluegray-100">{ps.employee_name ?? `#${ps.employee_id}`}</td>
                         <td className="px-4 py-2 text-bluegray-700 border-b border-bluegray-100 text-right tabular-nums">{ps.base_salary.toLocaleString()}</td>
                         <td className="px-4 py-2 text-bluegray-700 border-b border-bluegray-100 text-right tabular-nums">{ps.commission_amount.toLocaleString()}</td>
                         <td className="px-4 py-2 text-bluegray-700 border-b border-bluegray-100 text-right tabular-nums font-semibold">{ps.total_amount.toLocaleString()}</td>
@@ -351,7 +346,7 @@ export default function PayrollPage() {
             {detailLoading && <div className="text-center text-sm text-bluegray-400">{t("common.loading")}</div>}
             {detailPayslip && detailPayslip.commission_lines && detailPayslip.commission_lines.length > 0 && (
               <div>
-                <h4 className="text-xs font-semibold text-bluegray-500 uppercase tracking-wider mb-2">{t("payroll.commissionLines")} — Employee #{detailPayslip.employee_id}</h4>
+                <h4 className="text-xs font-semibold text-bluegray-500 uppercase tracking-wider mb-2">{t("payroll.commissionLines")} — {detailPayslip.employee_name ?? `#${detailPayslip.employee_id}`}</h4>
                 <div className="border border-bluegray-200 rounded-xl overflow-hidden overflow-x-auto">
                   <table className="w-full border-collapse text-xs">
                     <thead>

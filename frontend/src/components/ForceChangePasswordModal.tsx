@@ -26,6 +26,10 @@ export default function ForceChangePasswordModal() {
       setError(t("auth.passwordMismatch"));
       return;
     }
+    if (newPassword.length < 8) {
+      setError(t("auth.passwordMinLength"));
+      return;
+    }
     if (newPassword !== confirmPassword) {
       setError(t("auth.passwordMismatch"));
       return;

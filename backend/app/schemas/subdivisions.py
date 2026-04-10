@@ -24,6 +24,7 @@ class SubDivisionMemberResponse(BaseModel):
     id: int
     subdivision_id: int
     employee_id: int
+    employee_name: str | None = None
     created_at: datetime
 
 

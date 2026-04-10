@@ -20,6 +20,7 @@ def _user_context(user) -> UserContext:
         id=user.id,
         display_name=user.display_name,
         username=user.username,
+        role=user.role,
         email=user.email,
         phone_number=user.phone_number,
         permissions=permissions,

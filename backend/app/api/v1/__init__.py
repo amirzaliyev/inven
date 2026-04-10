@@ -9,6 +9,7 @@ from app.api.v1 import (
     inventory_transactions,
     orders,
     payroll,
+    permissions,
     products,
     subdivisions,
     users,
@@ -27,6 +28,7 @@ v1_routers.include_router(products.router, prefix="/products", tags=["products"]
 v1_routers.include_router(payroll.router, prefix="/payroll", tags=["payroll"])
 v1_routers.include_router(subdivisions.router, prefix="/subdivisions", tags=["subdivisions"])
 v1_routers.include_router(users.router, prefix="/users", tags=["users"])
+v1_routers.include_router(permissions.router, prefix="/permissions", tags=["permissions"])
 v1_routers.include_router(
     inventory_transactions.router,
     prefix="/inventory-transactions",

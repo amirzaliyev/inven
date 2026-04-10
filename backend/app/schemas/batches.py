@@ -17,6 +17,7 @@ class Batch(BaseModel):
     id: int
     batch_date: date
     product_id: int
+    product_name: str | None = None
     quantity: int
     subdivision_id: int | None
     subdivision: BatchSubDivision | None = None
