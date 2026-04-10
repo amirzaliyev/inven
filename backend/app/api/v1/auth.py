@@ -45,11 +45,22 @@ async def get_access_token(
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(
+    response: Response,
     claims: RefreshTokenClaims = Depends(get_refresh_token_claims),
     service: AuthService = Depends(get_auth_service),
 ):
-    tokens = await service.refresh_token(claims=claims)
-    return tokens
+    ctx = await service.refresh_token(claims=claims)
+    response.set_cookie(
+        key="refresh_token",
+        value=create_refresh_token(user=ctx),
+        httponly=True,
+        samesite="none",
+        secure=True,
+    )
+    return TokenResponse(
+        access_token=create_access_token(user=ctx),
+        access_token_expires_in=settings.jwt_access_token_expire_minutes * 60,
+    )
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

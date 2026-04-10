@@ -1,10 +1,8 @@
 from datetime import datetime, timezone
 
-from app.auth.jwt import create_access_token
 from app.auth.passwords import verify_hash
 from app.auth.permissions import get_permissions_for_role
-from app.core.config import settings
-from app.schemas.auth import RefreshTokenClaims, TokenResponse, UserContext
+from app.schemas.auth import RefreshTokenClaims, UserContext
 
 from .exceptions import ResourceNotFound, UnAuthorized
 from .users import UserService
@@ -54,10 +52,6 @@ class AuthService:
 
         return _user_context(user)
 
-    async def refresh_token(self, claims: RefreshTokenClaims) -> TokenResponse:
+    async def refresh_token(self, claims: RefreshTokenClaims) -> UserContext:
         user = await self._user_service.get(id=claims.sub)
-        access_token = create_access_token(user=_user_context(user))
-        return TokenResponse(
-            access_token=access_token,
-            access_token_expires_in=settings.jwt_access_token_expire_minutes * 60,
-        )
+        return _user_context(user)
