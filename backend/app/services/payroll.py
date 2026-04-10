@@ -115,9 +115,7 @@ class PayrollService(BaseModelService[Payroll]):
         await self._session.refresh(payroll)
         return payroll
 
-    async def _create_salary_payslip(
-        self, payroll_id: int, employee: Employee
-    ) -> None:
+    async def _create_salary_payslip(self, payroll_id: int, employee: Employee) -> None:
         payslip = Payslip(
             payroll_id=payroll_id,
             employee_id=employee.id,
@@ -198,7 +196,9 @@ class PayrollService(BaseModelService[Payroll]):
         )
         payroll = await self._session.scalar(stmt)
         if not payroll:
-            raise ResourceNotFound(code="payroll_not_found", message="Payroll not found.")
+            raise ResourceNotFound(
+                code="payroll_not_found", message="Payroll not found."
+            )
         return payroll
 
     async def get_payslip(self, payslip_id: int) -> Payslip:
@@ -209,7 +209,9 @@ class PayrollService(BaseModelService[Payroll]):
         )
         payslip = await self._session.scalar(stmt)
         if not payslip:
-            raise ResourceNotFound(code="payslip_not_found", message="Payslip not found.")
+            raise ResourceNotFound(
+                code="payslip_not_found", message="Payslip not found."
+            )
         return payslip
 
     async def list(
