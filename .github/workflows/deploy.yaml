@@ -9,7 +9,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: ~/svc/inven
+        working-directory: /home/ubuntu/svc/inven
 
     steps:
       - name: Stop running containers
