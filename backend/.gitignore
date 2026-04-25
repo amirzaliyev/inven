@@ -1,5 +1,3 @@
-.python-version
-uv.lock
 .env
 __pycache__/
 .vscode
