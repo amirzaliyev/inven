@@ -5,6 +5,15 @@ import { useConfirm } from "../contexts/ConfirmContext";
 import { useAuth } from "../contexts/AuthContext";
 import { Modal } from "../components/Modal";
 import {
+  PageHead,
+  Button,
+  Searchbar,
+  ListCard,
+  ListRow,
+  EmptyState,
+  initials,
+} from "../components/ui";
+import {
   createCustomer,
   deleteCustomer,
   listCustomers,
@@ -17,6 +26,30 @@ interface EditState {
   phone_number: string;
   comment: string;
 }
+
+const IconEdit = (
+  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+  </svg>
+);
+
+const IconTrash = (
+  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+  </svg>
+);
+
+const IconUsers = (
+  <svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-3.13a4 4 0 11-8 0 4 4 0 018 0zm6 0a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+);
+
+const IconLock = (
+  <svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 11c0-1.105.895-2 2-2s2 .895 2 2v3a2 2 0 11-4 0v-3zm-7 8a2 2 0 002 2h10a2 2 0 002-2v-7a2 2 0 00-2-2H7a2 2 0 00-2 2v7z" />
+  </svg>
+);
 
 export default function CustomersPage() {
   const { t } = useTranslation();
@@ -61,9 +94,29 @@ export default function CustomersPage() {
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, search, t]);
 
   useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
+
+  // Debounced search: when the user pauses typing, perform search
+  useEffect(() => {
+    const id = setTimeout(() => {
+      if (searchInput !== search) {
+        setPage(1);
+        setSearch(searchInput);
+      }
+    }, 300);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
+
+  function resetCreate() {
+    setFullName("");
+    setPhone("");
+    setComment("");
+    setCreateErrors({});
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -80,11 +133,13 @@ export default function CustomersPage() {
         comment: comment.trim() || null,
       });
       toast("success", t("customers.createSuccess", { name: created.full_name }));
-      setFullName(""); setPhone(""); setComment("");
+      resetCreate();
       setShowCreateModal(false);
       fetchCustomers();
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? t("customers.createError");
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        t("customers.createError");
       setCreateErrors({ api: msg });
     } finally {
       setSubmitting(false);
@@ -92,26 +147,40 @@ export default function CustomersPage() {
   }
 
   function startEdit(c: Customer) {
+    if (!canWrite) return;
     setEditingId(c.id);
-    setEditState({ full_name: c.full_name, phone_number: c.phone_number ?? "", comment: c.comment ?? "" });
+    setEditState({
+      full_name: c.full_name,
+      phone_number: c.phone_number ?? "",
+      comment: c.comment ?? "",
+    });
     setEditError(null);
   }
 
-  function cancelEdit() { setEditingId(null); setEditError(null); }
+  function cancelEdit() {
+    setEditingId(null);
+    setEditError(null);
+  }
 
   async function handleUpdate(customerId: number) {
-    if (!editState.full_name.trim()) { setEditError(t("customers.validationRequired")); return; }
-    setEditSubmitting(true); setEditError(null);
+    if (!editState.full_name.trim()) {
+      setEditError(t("customers.validationRequired"));
+      return;
+    }
+    setEditSubmitting(true);
+    setEditError(null);
     try {
       const updated = await updateCustomer(customerId, {
         full_name: editState.full_name.trim(),
         phone_number: editState.phone_number.trim() || null,
         comment: editState.comment.trim() || null,
       });
-      setCustomers(prev => prev.map(c => c.id === customerId ? updated : c));
+      setCustomers((prev) => prev.map((c) => (c.id === customerId ? updated : c)));
       setEditingId(null);
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? t("customers.updateError");
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        t("customers.updateError");
       setEditError(msg);
     } finally {
       setEditSubmitting(false);
@@ -119,14 +188,18 @@ export default function CustomersPage() {
   }
 
   async function handleDelete(c: Customer) {
-    const ok = await confirm({ message: t("customers.deleteConfirm", { name: c.full_name }), danger: true });
+    const ok = await confirm({
+      message: t("customers.deleteConfirm", { name: c.full_name }),
+      danger: true,
+    });
     if (!ok) return;
     setDeletingId(c.id);
     try {
       await deleteCustomer(c.id);
-      setCustomers(prev => prev.filter(x => x.id !== c.id));
-      setTotal(t => t - 1);
+      setCustomers((prev) => prev.filter((x) => x.id !== c.id));
+      setTotal((n) => n - 1);
       toast("success", t("customers.deleteSuccess", { name: c.full_name }));
+      if (editingId === c.id) setEditingId(null);
     } catch (err: unknown) {
       const errData = (err as { response?: { data?: { code?: string; message?: string } } })?.response?.data;
       const msg = errData?.code === "customer_referenced"
@@ -138,173 +211,385 @@ export default function CustomersPage() {
     }
   }
 
-  function handleSearch(e: React.FormEvent) { e.preventDefault(); setPage(1); setSearch(searchInput); }
-
-  const inputCls = "px-3 py-2 border border-bluegray-200 rounded-xl text-sm outline-none focus:border-cyan-400 focus:shadow-sm bg-white";
-
   if (!canRead) {
     return (
-      <div className="max-w-3xl mx-auto w-full">
-        <h1 className="text-2xl font-bold text-bluegray-800 mb-1 tracking-tight">{t("customers.title")}</h1>
-        <div className="mt-8 bg-white rounded-2xl shadow px-6 py-12 text-center">
-          <svg className="w-12 h-12 text-bluegray-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-          </svg>
-          <p className="text-sm font-medium text-bluegray-500">{t("common.noAccess")}</p>
-        </div>
+      <div>
+        <PageHead title={t("customers.title")} subtitle={t("customers.subtitle")} />
+        <ListCard>
+          <EmptyState
+            icon={IconLock}
+            title={t("common.noAccess")}
+          />
+        </ListCard>
       </div>
     );
   }
 
-  const editingCustomer = customers.find(c => c.id === editingId) ?? null;
+  const editingCustomer = customers.find((c) => c.id === editingId) ?? null;
 
   return (
-    <div className="max-w-3xl mx-auto w-full">
-      <h1 className="text-2xl font-bold text-bluegray-800 mb-1 tracking-tight">{t("customers.title")}</h1>
-      <p className="text-sm text-bluegray-400 mb-6">{t("customers.subtitle")}</p>
-
-      <div className="bg-white rounded-2xl shadow overflow-hidden">
-        <div className="flex justify-between items-center px-5 py-4 border-b border-bluegray-100">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-bluegray-700">{t("customers.listTitle")}</span>
-            <span className="bg-cyan-50 text-cyan-700 text-xs font-semibold px-2 py-0.5 rounded-full">{total}</span>
-          </div>
-          {canWrite && (
-            <button onClick={() => setShowCreateModal(true)} className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl text-xs font-semibold cursor-pointer transition-colors">
+    <div>
+      <PageHead
+        title={t("customers.title")}
+        subtitle={t("customers.subtitle")}
+        actions={
+          canWrite ? (
+            <Button onClick={() => setShowCreateModal(true)}>
               + {t("customers.addNew")}
-            </button>
-          )}
-        </div>
+            </Button>
+          ) : null
+        }
+      />
 
-        <div className="px-5 pt-3 pb-3">
-          <form onSubmit={handleSearch} className="flex gap-2 items-center">
-            <input type="text" placeholder={t("customers.searchPlaceholder")} value={searchInput} onChange={e => setSearchInput(e.target.value)} className={`flex-1 ${inputCls}`} />
-            <button type="submit" className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl text-sm font-semibold cursor-pointer transition-colors">{t("common.search")}</button>
-            {search && (
-              <button type="button" className="px-3 py-2 text-bluegray-500 border border-bluegray-200 rounded-xl text-sm font-medium hover:bg-bluegray-50 cursor-pointer" onClick={() => { setSearchInput(""); setSearch(""); setPage(1); }}>
-                {t("common.clear")}
-              </button>
-            )}
-          </form>
+      {/* Search + meta */}
+      <div className="mb-4">
+        <Searchbar
+          value={searchInput}
+          onChange={setSearchInput}
+          placeholder={t("customers.searchPlaceholder")}
+        />
+        <div className="mt-2 px-1 text-xs text-bluegray-500">
+          {loading ? t("common.loading") : t("common.pageOf", { page, total: Math.max(1, totalPages) })}
+          <span className="mx-1.5">·</span>
+          <span className="text-bluegray-400">{total}</span>
         </div>
+      </div>
 
+      {/* Mobile list */}
+      <div className="md:hidden">
         {loading ? (
-          <div className="px-5 py-10 text-center text-sm text-bluegray-400">{t("common.loading")}</div>
+          <ListCard>
+            <div className="px-5 py-10 text-center text-sm text-bluegray-400">{t("common.loading")}</div>
+          </ListCard>
         ) : customers.length === 0 ? (
-          <div className="px-5 py-10 text-center text-sm text-bluegray-400">{search ? t("customers.emptySearch") : t("customers.emptyList")}</div>
+          <ListCard>
+            <EmptyState
+              icon={IconUsers}
+              title={search ? t("customers.emptySearch") : t("customers.emptyList")}
+              description={!search && canWrite ? t("customers.subtitle") : undefined}
+              action={
+                !search && canWrite ? (
+                  <Button onClick={() => setShowCreateModal(true)}>
+                    + {t("customers.addNew")}
+                  </Button>
+                ) : undefined
+              }
+            />
+          </ListCard>
         ) : (
-          <>
-            <div className="overflow-x-auto"><table className="w-full border-collapse">
-              <thead>
-                <tr>
-                  <th className="hidden sm:table-cell bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("common.id")}</th>
-                  <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("customers.nameLabel")}</th>
-                  <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("customers.phoneHeader")}</th>
-                  <th className="hidden sm:table-cell bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("customers.commentHeader")}</th>
-                  {canWrite && <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left w-36">{t("common.actions")}</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {customers.map(c => (
-                  <tr key={c.id} className="hover:bg-bluegray-50">
-                    <td className="hidden sm:table-cell px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100"><span className="text-bluegray-400 text-xs">#{c.id}</span></td>
-                    <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">{c.full_name}</td>
-                    <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100"><span className="text-bluegray-400 text-xs">{c.phone_number ?? "—"}</span></td>
-                    <td className="hidden sm:table-cell px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100"><span className="text-bluegray-400 text-xs">{c.comment ?? "—"}</span></td>
-                    {canWrite && (
-                      <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
-                        <div className="flex gap-1.5">
-                          {/* Mobile: icon only */}
-                          <button onClick={() => startEdit(c)} disabled={deletingId !== null}
-                            className="p-1.5 text-cyan-600 border border-cyan-200 rounded-lg hover:bg-cyan-50 cursor-pointer disabled:opacity-40 sm:hidden">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          <button onClick={() => handleDelete(c)} disabled={deletingId !== null}
-                            className="p-1.5 text-red-500 border border-red-200 rounded-lg hover:bg-red-50 cursor-pointer disabled:opacity-40 sm:hidden">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                          {/* Desktop: text buttons */}
-                          <button onClick={() => startEdit(c)} disabled={deletingId !== null}
-                            className="hidden sm:block px-3 py-1 text-cyan-600 border border-cyan-200 rounded-lg text-sm font-medium hover:bg-cyan-50 cursor-pointer disabled:opacity-40">
-                            {t("common.edit")}
-                          </button>
-                          <button onClick={() => handleDelete(c)} disabled={deletingId !== null}
-                            className="hidden sm:block px-3 py-1 text-red-500 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-50 cursor-pointer disabled:opacity-40">
-                            {deletingId === c.id ? t("customers.deleting") : t("common.delete")}
-                          </button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table></div>
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-bluegray-100 text-sm text-bluegray-500">
-                <button className={`px-3 py-1.5 border rounded-lg text-sm cursor-pointer ${page <= 1 ? "bg-bluegray-50 text-bluegray-300 border-bluegray-100 cursor-not-allowed" : "bg-white text-bluegray-700 border-bluegray-200 hover:bg-bluegray-50"}`} onClick={() => setPage(p => p - 1)} disabled={page <= 1}>
-                  <span className="sm:hidden">←</span><span className="hidden sm:inline">← {t("common.previous")}</span>
-                </button>
-                <span className="text-xs">{t("common.pageOf", { page, total: totalPages })}</span>
-                <button className={`px-3 py-1.5 border rounded-lg text-sm cursor-pointer ${page >= totalPages ? "bg-bluegray-50 text-bluegray-300 border-bluegray-100 cursor-not-allowed" : "bg-white text-bluegray-700 border-bluegray-200 hover:bg-bluegray-50"}`} onClick={() => setPage(p => p + 1)} disabled={page >= totalPages}>
-                  <span className="sm:hidden">→</span><span className="hidden sm:inline">{t("common.next")} →</span>
-                </button>
-              </div>
-            )}
-          </>
+          <ListCard>
+            {customers.map((c) => {
+              const sub = [c.phone_number, c.comment].filter(Boolean).join(" · ");
+              return (
+                <ListRow
+                  key={c.id}
+                  avatar={initials(c.full_name)}
+                  title={c.full_name}
+                  subtitle={sub || "—"}
+                  onClick={canWrite ? () => startEdit(c) : undefined}
+                />
+              );
+            })}
+          </ListCard>
         )}
       </div>
 
+      {/* Desktop table */}
+      <div className="hidden md:block">
+        <ListCard>
+          {loading ? (
+            <div className="px-5 py-10 text-center text-sm text-bluegray-400">{t("common.loading")}</div>
+          ) : customers.length === 0 ? (
+            <EmptyState
+              icon={IconUsers}
+              title={search ? t("customers.emptySearch") : t("customers.emptyList")}
+              action={
+                !search && canWrite ? (
+                  <Button onClick={() => setShowCreateModal(true)}>
+                    + {t("customers.addNew")}
+                  </Button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>{t("customers.nameLabel")}</th>
+                    <th>{t("customers.phoneHeader")}</th>
+                    <th>{t("customers.commentHeader")}</th>
+                    {canWrite && <th style={{ width: 140, textAlign: "right" }}>{t("common.actions")}</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {customers.map((c) => (
+                    <tr key={c.id}>
+                      <td>
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="grid place-items-center font-semibold"
+                            style={{
+                              width: 32,
+                              height: 32,
+                              borderRadius: 8,
+                              background: "var(--brand-50)",
+                              color: "var(--brand-700)",
+                              fontSize: 11,
+                              flexShrink: 0,
+                            }}
+                          >
+                            {initials(c.full_name)}
+                          </div>
+                          <span className="font-medium" style={{ color: "var(--ink-900)" }}>
+                            {c.full_name}
+                          </span>
+                        </div>
+                      </td>
+                      <td>{c.phone_number ?? <span className="text-bluegray-400">—</span>}</td>
+                      <td>
+                        <span className="block max-w-[28ch] truncate text-bluegray-500">
+                          {c.comment ?? "—"}
+                        </span>
+                      </td>
+                      {canWrite && (
+                        <td>
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => startEdit(c)}
+                              disabled={deletingId !== null}
+                              title={t("common.edit")}
+                            >
+                              {IconEdit}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(c)}
+                              disabled={deletingId !== null}
+                              title={t("common.delete")}
+                              style={{ color: "var(--danger)" }}
+                            >
+                              {IconTrash}
+                            </Button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {!loading && customers.length > 0 && totalPages > 1 && (
+            <div
+              className="flex items-center justify-between px-5 py-3"
+              style={{ borderTop: "1px solid var(--line)" }}
+            >
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                ← {t("common.previous")}
+              </Button>
+              <span className="text-xs text-bluegray-500">
+                {t("common.pageOf", { page, total: totalPages })}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                {t("common.next")} →
+              </Button>
+            </div>
+          )}
+        </ListCard>
+      </div>
+
+      {/* Mobile pagination */}
+      {!loading && customers.length > 0 && totalPages > 1 && (
+        <div className="md:hidden mt-3 flex items-center justify-between gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => p - 1)}
+          >
+            ←
+          </Button>
+          <span className="text-xs text-bluegray-500">
+            {t("common.pageOf", { page, total: totalPages })}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            →
+          </Button>
+        </div>
+      )}
+
       {/* Create modal */}
-      <Modal open={canWrite && showCreateModal} onClose={() => { setShowCreateModal(false); setFullName(""); setPhone(""); setComment(""); setCreateErrors({}); }} title={t("customers.addNew")}>
-        <form onSubmit={handleCreate} noValidate className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("customers.nameLabel")} <span className="text-red-400">*</span></label>
-            <input type="text" placeholder={t("customers.namePlaceholder")} value={fullName} onChange={e => { setFullName(e.target.value); setCreateErrors(prev => { const { full_name: _, ...rest } = prev; return rest; }); }} className={`${inputCls} ${createErrors.full_name ? "!border-red-400" : ""}`} disabled={submitting} autoFocus />
-            <p className="text-xs text-red-600 min-h-4">{createErrors.full_name ?? "\u00A0"}</p>
+      <Modal
+        open={canWrite && showCreateModal}
+        onClose={() => { setShowCreateModal(false); resetCreate(); }}
+        title={t("customers.addNew")}
+      >
+        <form onSubmit={handleCreate} noValidate>
+          <div className="field">
+            <label className="field-label">
+              {t("customers.nameLabel")} <span style={{ color: "var(--danger)" }}>*</span>
+            </label>
+            <input
+              type="text"
+              className="input"
+              style={createErrors.full_name ? { borderColor: "var(--danger)" } : undefined}
+              placeholder={t("customers.namePlaceholder")}
+              value={fullName}
+              onChange={(e) => {
+                setFullName(e.target.value);
+                if (createErrors.full_name) {
+                  setCreateErrors((prev) => {
+                    const { full_name: _, ...rest } = prev;
+                    return rest;
+                  });
+                }
+              }}
+              disabled={submitting}
+              autoFocus
+            />
+            {createErrors.full_name && <p className="field-error">{createErrors.full_name}</p>}
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("customers.phoneLabel")}</label>
-            <input type="tel" placeholder={t("customers.phonePlaceholder")} value={phone} onChange={e => setPhone(e.target.value)} className={inputCls} disabled={submitting} />
+
+          <div className="field">
+            <label className="field-label">{t("customers.phoneLabel")}</label>
+            <input
+              type="tel"
+              className="input"
+              placeholder={t("customers.phonePlaceholder")}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              disabled={submitting}
+            />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("customers.commentLabel")}</label>
-            <textarea placeholder={t("customers.commentPlaceholder")} value={comment} onChange={e => setComment(e.target.value)} className={`${inputCls} resize-y min-h-16 font-sans`} disabled={submitting} rows={2} />
+
+          <div className="field">
+            <label className="field-label">{t("customers.commentLabel")}</label>
+            <textarea
+              className="input"
+              placeholder={t("customers.commentPlaceholder")}
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              disabled={submitting}
+              rows={3}
+            />
           </div>
-          {createErrors.api && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{createErrors.api}</p>}
+
+          {createErrors.api && (
+            <p
+              className="text-xs px-3 py-2 rounded-xl mb-2"
+              style={{
+                color: "var(--danger)",
+                background: "rgba(239, 68, 68, 0.08)",
+                border: "1px solid rgba(239, 68, 68, 0.25)",
+              }}
+            >
+              {createErrors.api}
+            </p>
+          )}
+
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={() => { setShowCreateModal(false); setFullName(""); setPhone(""); setComment(""); setCreateErrors({}); }} className="px-4 py-2 rounded-xl text-sm font-medium text-bluegray-600 border border-bluegray-200 hover:bg-bluegray-50 cursor-pointer">{t("common.cancel")}</button>
-            <button type="submit" disabled={submitting} className={`px-5 py-2 rounded-xl text-sm font-semibold text-white ${submitting ? "bg-cyan-300 cursor-not-allowed" : "bg-cyan-500 hover:bg-cyan-600 cursor-pointer transition-colors"}`}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => { setShowCreateModal(false); resetCreate(); }}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" disabled={submitting}>
               {submitting ? t("customers.creating") : t("customers.create")}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>
 
       {/* Edit modal */}
-      <Modal open={canWrite && editingId !== null} onClose={cancelEdit} title={editingCustomer ? editingCustomer.full_name : t("common.edit")}>
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("customers.nameLabel")}</label>
-            <input type="text" value={editState.full_name} onChange={e => setEditState(s => ({ ...s, full_name: e.target.value }))} className={inputCls} disabled={editSubmitting} autoFocus />
+      <Modal
+        open={canWrite && editingId !== null}
+        onClose={cancelEdit}
+        title={editingCustomer ? editingCustomer.full_name : t("common.edit")}
+      >
+        <div>
+          <div className="field">
+            <label className="field-label">{t("customers.nameLabel")}</label>
+            <input
+              type="text"
+              className="input"
+              value={editState.full_name}
+              onChange={(e) => setEditState((s) => ({ ...s, full_name: e.target.value }))}
+              disabled={editSubmitting}
+              autoFocus
+            />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("customers.phoneLabel")}</label>
-            <input type="tel" value={editState.phone_number} onChange={e => setEditState(s => ({ ...s, phone_number: e.target.value }))} className={inputCls} disabled={editSubmitting} placeholder="+998..." />
+
+          <div className="field">
+            <label className="field-label">{t("customers.phoneLabel")}</label>
+            <input
+              type="tel"
+              className="input"
+              placeholder="+998..."
+              value={editState.phone_number}
+              onChange={(e) => setEditState((s) => ({ ...s, phone_number: e.target.value }))}
+              disabled={editSubmitting}
+            />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("customers.commentLabel")}</label>
-            <textarea value={editState.comment} onChange={e => setEditState(s => ({ ...s, comment: e.target.value }))} className={`${inputCls} resize-y min-h-16 font-sans`} disabled={editSubmitting} rows={2} />
+
+          <div className="field">
+            <label className="field-label">{t("customers.commentLabel")}</label>
+            <textarea
+              className="input"
+              value={editState.comment}
+              onChange={(e) => setEditState((s) => ({ ...s, comment: e.target.value }))}
+              disabled={editSubmitting}
+              rows={3}
+            />
           </div>
-          {editError && <p className="text-xs text-red-600">{editError}</p>}
-          <div className="flex justify-end gap-2 pt-2">
-            <button onClick={cancelEdit} className="px-4 py-2 rounded-xl text-sm font-medium text-bluegray-600 border border-bluegray-200 hover:bg-bluegray-50 cursor-pointer">{t("common.cancel")}</button>
-            <button onClick={() => editingId !== null && handleUpdate(editingId)} disabled={editSubmitting} className={`px-5 py-2 rounded-xl text-sm font-semibold text-white ${editSubmitting ? "bg-cyan-300 cursor-not-allowed" : "bg-cyan-500 hover:bg-cyan-600 cursor-pointer transition-colors"}`}>
-              {editSubmitting ? t("common.saving") : t("common.save")}
-            </button>
+
+          {editError && <p className="field-error mb-2">{editError}</p>}
+
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+            {editingCustomer && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => editingCustomer && handleDelete(editingCustomer)}
+                disabled={editSubmitting || deletingId !== null}
+                style={{ color: "var(--danger)" }}
+              >
+                {deletingId === editingId ? t("customers.deleting") : t("common.delete")}
+              </Button>
+            )}
+            <div className="flex gap-2 ml-auto">
+              <Button type="button" variant="outline" onClick={cancelEdit}>
+                {t("common.cancel")}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => editingId !== null && handleUpdate(editingId)}
+                disabled={editSubmitting}
+              >
+                {editSubmitting ? t("common.saving") : t("common.save")}
+              </Button>
+            </div>
           </div>
         </div>
       </Modal>

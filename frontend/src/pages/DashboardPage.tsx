@@ -4,6 +4,28 @@ import { useAuth } from "../contexts/AuthContext";
 import { getDashboard } from "../api/dashboard";
 import type { DashboardData } from "../types";
 
+const fmtNum = (n: number) => Number(n).toLocaleString("en-US");
+const fmtMoney = (n: number) =>
+  Number(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
+
+function Skeleton({ className = "" }: { className?: string }) {
+  return (
+    <div
+      className={`rounded-lg animate-pulse ${className}`}
+      style={{ background: "var(--bg-sunken)" }}
+    />
+  );
+}
+
+function PageHead({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <div className="mb-5 md:mb-6">
+      <h1 className="text-[22px] md:text-[26px] font-bold tracking-tight text-bluegray-900">{title}</h1>
+      {subtitle && <p className="mt-1 text-[13px] md:text-sm text-bluegray-500">{subtitle}</p>}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { user, hasPermission } = useAuth();
   const { t } = useTranslation();
@@ -24,9 +46,8 @@ export default function DashboardPage() {
   if (!canView) {
     return (
       <div>
-        <h1 className="text-2xl font-bold text-bluegray-800 mb-1 tracking-tight">{t("dashboard.title")}</h1>
-        <p className="text-sm text-bluegray-400 mb-8">{t("dashboard.welcome", { name: user?.display_name })}</p>
-        <div className="bg-white rounded-2xl shadow px-6 py-12 text-center">
+        <PageHead title={t("dashboard.title")} subtitle={t("dashboard.welcome", { name: user?.display_name })} />
+        <div className="list-card p-10 text-center">
           <p className="text-sm font-medium text-bluegray-500">{t("common.noAccess")}</p>
         </div>
       </div>
@@ -36,9 +57,13 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div>
-        <h1 className="text-2xl font-bold text-bluegray-800 mb-1 tracking-tight">{t("dashboard.title")}</h1>
-        <p className="text-sm text-bluegray-400 mb-8">{t("dashboard.welcome", { name: user?.display_name })}</p>
-        <div className="py-16 text-center text-sm text-bluegray-400">{t("common.loading")}</div>
+        <PageHead title={t("dashboard.title")} subtitle={t("dashboard.welcome", { name: user?.display_name })} />
+        <Skeleton className="h-[120px] mb-4 max-w-sm" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Skeleton className="h-64" />
+          <Skeleton className="h-64" />
+          <Skeleton className="h-64 lg:col-span-2" />
+        </div>
       </div>
     );
   }
@@ -46,85 +71,134 @@ export default function DashboardPage() {
   if (error || !data) {
     return (
       <div>
-        <h1 className="text-2xl font-bold text-bluegray-800 mb-1 tracking-tight">{t("dashboard.title")}</h1>
-        <p className="text-sm text-bluegray-400 mb-8">{t("dashboard.welcome", { name: user?.display_name })}</p>
-        <div className="py-16 text-center text-sm text-red-500">{t("dashboard.loadError")}</div>
+        <PageHead title={t("dashboard.title")} subtitle={t("dashboard.welcome", { name: user?.display_name })} />
+        <div
+          className="list-card p-10 text-center"
+          style={{ borderLeft: "3px solid var(--danger)" }}
+        >
+          <p className="text-sm font-semibold" style={{ color: "var(--danger)" }}>
+            {t("dashboard.loadError")}
+          </p>
+        </div>
       </div>
     );
   }
 
-  const fmt = (n: number) => Number(n).toLocaleString("en-US");
-  const fmtMoney = (n: number) => `${Number(n).toLocaleString("en-US", { maximumFractionDigits: 0 })} UZS`;
+  const totalOrdersThisMonth = data.order_stats.completed;
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-bluegray-800 mb-1 tracking-tight">{t("dashboard.title")}</h1>
-      <p className="text-sm text-bluegray-400 mb-8">{t("dashboard.welcome", { name: user?.display_name })}</p>
+      <PageHead title={t("dashboard.title")} subtitle={t("dashboard.welcome", { name: user?.display_name })} />
 
-      {/* Stat cards row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {/* Revenue */}
-        <div className="bg-white rounded-2xl shadow p-5">
-          <p className="text-xs font-semibold text-bluegray-500 uppercase tracking-wider mb-2">{t("dashboard.revenue")}</p>
-          <p className="text-2xl font-bold text-bluegray-800 tabular-nums">{fmtMoney(data.revenue_this_month)}</p>
+      {/* Hero revenue (compact, inline so'm) */}
+      <div className="hero-stat hero-compact mb-5">
+        <div className="eyebrow">{t("dashboard.revenue")}</div>
+        <div className="hero-row">
+          <span className="big">{fmtMoney(data.revenue_this_month)}</span>
+          <span className="unit">so'm</span>
         </div>
-
-        {/* Orders */}
-        <div className="bg-white rounded-2xl shadow p-5">
-          <p className="text-xs font-semibold text-bluegray-500 uppercase tracking-wider mb-2">{t("dashboard.orders")}</p>
-          <div className="flex gap-3 text-sm">
-            <div><span className="text-amber-600 font-bold">{data.order_stats.draft}</span> <span className="text-bluegray-400 text-xs">{t("dashboard.draft")}</span></div>
-            <div><span className="text-green-600 font-bold">{data.order_stats.completed}</span> <span className="text-bluegray-400 text-xs">{t("dashboard.completed")}</span></div>
-            <div><span className="text-red-500 font-bold">{data.order_stats.cancelled}</span> <span className="text-bluegray-400 text-xs">{t("dashboard.cancelled")}</span></div>
-          </div>
-        </div>
-
-        {/* Workforce */}
-        <div className="bg-white rounded-2xl shadow p-5">
-          <p className="text-xs font-semibold text-bluegray-500 uppercase tracking-wider mb-2">{t("dashboard.workforce")}</p>
-          <div className="flex gap-3 text-sm">
-            <div><span className="text-blue-600 font-bold">{data.workforce.salary_employees}</span> <span className="text-bluegray-400 text-xs">{t("dashboard.salaryEmployees")}</span></div>
-            <div><span className="text-purple-600 font-bold">{data.workforce.commission_employees}</span> <span className="text-bluegray-400 text-xs">{t("dashboard.commissionEmployees")}</span></div>
-            <div><span className="text-cyan-600 font-bold">{data.workforce.subdivision_count}</span> <span className="text-bluegray-400 text-xs">{t("dashboard.subdivisions")}</span></div>
-          </div>
-        </div>
-
-        {/* Payroll */}
-        <div className="bg-white rounded-2xl shadow p-5">
-          <p className="text-xs font-semibold text-bluegray-500 uppercase tracking-wider mb-2">{t("dashboard.payrollStatus")}</p>
-          <div className="flex gap-3 text-sm">
-            <div><span className="text-amber-600 font-bold">{data.payroll_stats.draft}</span> <span className="text-bluegray-400 text-xs">{t("dashboard.draft")}</span></div>
-            <div><span className="text-cyan-600 font-bold">{data.payroll_stats.approved}</span> <span className="text-bluegray-400 text-xs">{t("dashboard.approved")}</span></div>
-            <div><span className="text-green-600 font-bold">{data.payroll_stats.paid}</span> <span className="text-bluegray-400 text-xs">{t("dashboard.paid")}</span></div>
-          </div>
+        <div className="delta">
+          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+          </svg>
+          {totalOrdersThisMonth} {t("dashboard.orders").toLowerCase()}
         </div>
       </div>
 
       {/* Tables row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Stock levels */}
-        <div className="bg-white rounded-2xl shadow overflow-hidden">
-          <div className="px-5 py-4 border-b border-bluegray-100">
-            <span className="text-sm font-semibold text-bluegray-700">{t("dashboard.stockLevels")}</span>
+        <div className="list-card overflow-hidden">
+          <div
+            className="px-5 py-3.5 flex items-center justify-between"
+            style={{ borderBottom: "1px solid var(--line)" }}
+          >
+            <span className="text-[13px] font-semibold text-bluegray-700">{t("dashboard.stockLevels")}</span>
+            <span className="text-[11px] font-medium text-bluegray-400 uppercase tracking-wider">
+              {data.stock_levels.length}
+            </span>
           </div>
           {data.stock_levels.length === 0 ? (
-            <div className="px-5 py-8 text-center text-sm text-bluegray-400">{t("dashboard.noStock")}</div>
+            <div className="px-5 py-12 text-center text-sm text-bluegray-400">{t("dashboard.noStock")}</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-sm">
+              <table className="w-full text-sm">
                 <thead>
-                  <tr>
-                    <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-2 text-left">{t("dashboard.product")}</th>
-                    <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-2 text-left">{t("dashboard.sku")}</th>
-                    <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-2 text-right">{t("dashboard.quantity")}</th>
+                  <tr style={{ background: "var(--bg-sunken)" }}>
+                    <th className="text-[10px] font-semibold uppercase tracking-wider text-bluegray-500 px-5 py-2 text-left">{t("dashboard.product")}</th>
+                    <th className="text-[10px] font-semibold uppercase tracking-wider text-bluegray-500 px-5 py-2 text-left">{t("dashboard.sku")}</th>
+                    <th className="text-[10px] font-semibold uppercase tracking-wider text-bluegray-500 px-5 py-2 text-right">{t("dashboard.quantity")}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {data.stock_levels.map(s => (
-                    <tr key={s.product_id} className="hover:bg-bluegray-50">
-                      <td className="px-5 py-2 text-bluegray-700 border-b border-bluegray-100">{s.product_name}</td>
-                      <td className="px-5 py-2 border-b border-bluegray-100"><span className="font-mono bg-bluegray-50 px-2 py-0.5 rounded text-xs">{s.sku_code}</span></td>
-                      <td className="px-5 py-2 text-bluegray-700 border-b border-bluegray-100 text-right tabular-nums font-semibold">{fmt(s.quantity)}</td>
+                  {data.stock_levels.map((s) => {
+                    const qty = Number(s.quantity);
+                    const low = qty < 50;
+                    return (
+                      <tr
+                        key={s.product_id}
+                        className="hover:bg-bluegray-50 transition-colors"
+                        style={{ borderBottom: "1px solid var(--line)" }}
+                      >
+                        <td className="px-5 py-2.5 text-bluegray-700">{s.product_name}</td>
+                        <td className="px-5 py-2.5">
+                          <span
+                            className="font-mono text-[11px] px-2 py-0.5 rounded"
+                            style={{ background: "var(--bg-sunken)", color: "var(--ink-700)" }}
+                          >
+                            {s.sku_code}
+                          </span>
+                        </td>
+                        <td className="px-5 py-2.5 text-right">
+                          <span
+                            className={`tabular-nums font-semibold ${low ? "" : "text-bluegray-700"}`}
+                            style={low ? { color: "var(--warn)" } : undefined}
+                          >
+                            {fmtNum(qty)}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Today's production */}
+        <div className="list-card overflow-hidden">
+          <div
+            className="px-5 py-3.5 flex items-center justify-between"
+            style={{ borderBottom: "1px solid var(--line)" }}
+          >
+            <span className="text-[13px] font-semibold text-bluegray-700">{t("dashboard.todayProduction")}</span>
+            <span className="text-[11px] font-medium text-bluegray-400 uppercase tracking-wider">
+              {data.today_production.length}
+            </span>
+          </div>
+          {data.today_production.length === 0 ? (
+            <div className="px-5 py-12 text-center text-sm text-bluegray-400">{t("dashboard.noProduction")}</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ background: "var(--bg-sunken)" }}>
+                    <th className="text-[10px] font-semibold uppercase tracking-wider text-bluegray-500 px-5 py-2 text-left">{t("dashboard.product")}</th>
+                    <th className="text-[10px] font-semibold uppercase tracking-wider text-bluegray-500 px-5 py-2 text-right">{t("dashboard.totalQty")}</th>
+                    <th className="text-[10px] font-semibold uppercase tracking-wider text-bluegray-500 px-5 py-2 text-right">{t("dashboard.batches")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.today_production.map((p) => (
+                    <tr
+                      key={p.product_id}
+                      className="hover:bg-bluegray-50 transition-colors"
+                      style={{ borderBottom: "1px solid var(--line)" }}
+                    >
+                      <td className="px-5 py-2.5 text-bluegray-700">{p.product_name}</td>
+                      <td className="px-5 py-2.5 text-right text-bluegray-700 tabular-nums font-semibold">{fmtNum(p.total_quantity)}</td>
+                      <td className="px-5 py-2.5 text-right text-bluegray-500">{p.batch_count}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -133,29 +207,45 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Today's production */}
-        <div className="bg-white rounded-2xl shadow overflow-hidden">
-          <div className="px-5 py-4 border-b border-bluegray-100">
-            <span className="text-sm font-semibold text-bluegray-700">{t("dashboard.todayProduction")}</span>
+        {/* Today's sales */}
+        <div className="list-card overflow-hidden lg:col-span-2">
+          <div
+            className="px-5 py-3.5 flex items-center justify-between"
+            style={{ borderBottom: "1px solid var(--line)" }}
+          >
+            <span className="text-[13px] font-semibold text-bluegray-700">
+              {t("dashboard.todaySales", "Today's Sales")}
+            </span>
+            <span className="text-[11px] font-medium text-bluegray-400 uppercase tracking-wider">
+              {data.today_sales.length}
+            </span>
           </div>
-          {data.today_production.length === 0 ? (
-            <div className="px-5 py-8 text-center text-sm text-bluegray-400">{t("dashboard.noProduction")}</div>
+          {data.today_sales.length === 0 ? (
+            <div className="px-5 py-12 text-center text-sm text-bluegray-400">
+              {t("dashboard.noSales", "No sales today.")}
+            </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-sm">
+              <table className="w-full text-sm">
                 <thead>
-                  <tr>
-                    <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-2 text-left">{t("dashboard.product")}</th>
-                    <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-2 text-right">{t("dashboard.totalQty")}</th>
-                    <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-2 text-right">{t("dashboard.batches")}</th>
+                  <tr style={{ background: "var(--bg-sunken)" }}>
+                    <th className="text-[10px] font-semibold uppercase tracking-wider text-bluegray-500 px-5 py-2 text-left">{t("dashboard.product")}</th>
+                    <th className="text-[10px] font-semibold uppercase tracking-wider text-bluegray-500 px-5 py-2 text-right">{t("dashboard.totalQty")}</th>
+                    <th className="text-[10px] font-semibold uppercase tracking-wider text-bluegray-500 px-5 py-2 text-right">
+                      {t("dashboard.salesOrders", "Orders")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {data.today_production.map(p => (
-                    <tr key={p.product_id} className="hover:bg-bluegray-50">
-                      <td className="px-5 py-2 text-bluegray-700 border-b border-bluegray-100">{p.product_name}</td>
-                      <td className="px-5 py-2 text-bluegray-700 border-b border-bluegray-100 text-right tabular-nums font-semibold">{fmt(p.total_quantity)}</td>
-                      <td className="px-5 py-2 text-bluegray-500 border-b border-bluegray-100 text-right">{p.batch_count}</td>
+                  {data.today_sales.map((s) => (
+                    <tr
+                      key={s.product_id}
+                      className="hover:bg-bluegray-50 transition-colors"
+                      style={{ borderBottom: "1px solid var(--line)" }}
+                    >
+                      <td className="px-5 py-2.5 text-bluegray-700">{s.product_name}</td>
+                      <td className="px-5 py-2.5 text-right text-bluegray-700 tabular-nums font-semibold">{fmtNum(s.total_quantity)}</td>
+                      <td className="px-5 py-2.5 text-right text-bluegray-500">{s.order_count}</td>
                     </tr>
                   ))}
                 </tbody>

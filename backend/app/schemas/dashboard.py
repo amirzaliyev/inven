@@ -19,6 +19,13 @@ class TodayProduction(BaseModel):
     batch_count: int
 
 
+class TodaySale(BaseModel):
+    product_id: int
+    product_name: str
+    total_quantity: int
+    order_count: int
+
+
 class OrderStats(BaseModel):
     draft: int
     completed: int
@@ -41,6 +48,7 @@ class DashboardResponse(BaseModel):
     currency: str = settings.currency
     stock_levels: list[ProductStock]
     today_production: list[TodayProduction]
+    today_sales: list[TodaySale]
     order_stats: OrderStats
     revenue_this_month: Decimal
     payroll_stats: PayrollStats

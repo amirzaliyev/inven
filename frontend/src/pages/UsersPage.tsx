@@ -5,6 +5,18 @@ import { useConfirm } from "../contexts/ConfirmContext";
 import { useAuth } from "../contexts/AuthContext";
 import { Modal } from "../components/Modal";
 import {
+  PageHead,
+  Button,
+  Searchbar,
+  FilterChip,
+  ListCard,
+  ListRow,
+  EmptyState,
+  StatusPill,
+  initials,
+  type StatusVariant,
+} from "../components/ui";
+import {
   listUsers,
   createUser,
   updateUser,
@@ -29,17 +41,17 @@ const PERMISSION_GROUPS: { group: string; permissions: string[] }[] = [
 
 const ALL_PERMISSIONS = PERMISSION_GROUPS.flatMap(g => g.permissions);
 
-function roleBadge(role: string) {
-  if (role === "master_admin" || role === "admin") {
-    return "bg-cyan-100 text-cyan-700";
-  }
-  return "bg-bluegray-100 text-bluegray-600";
-}
-
-function roleLabel(role: string, t: (k: string) => string) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function roleLabel(role: string, t: any): string {
   if (role === "master_admin") return t("users.roleMasterAdmin");
   if (role === "admin") return t("users.roleAdmin");
+  if (role === "hr") return t("users.roleHr", "HR");
   return t("users.roleEmployee");
+}
+
+function roleVariant(role: string): StatusVariant {
+  if (role === "master_admin" || role === "admin") return "info";
+  return "neutral";
 }
 
 interface CreateState {
@@ -70,13 +82,14 @@ export default function UsersPage() {
 
   const canRead = hasPermission("users:read");
   const canWrite = hasPermission("users:write");
+  const canWriteUsers = canWrite;
   const isMasterAdmin = user?.role === "master_admin";
 
   // List state
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
+  const [, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -106,7 +119,7 @@ export default function UsersPage() {
   const [resetSubmitting, setResetSubmitting] = useState(false);
   const [resetErrors, setResetErrors] = useState<Record<string, string>>({});
 
-  // Deleting
+  // Deleting / status toggling
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const fetchUsers = useCallback(async () => {
@@ -114,7 +127,6 @@ export default function UsersPage() {
     try {
       const result = await listUsers(page, 10, search || undefined, roleFilter || undefined);
       setUsers(result.items);
-      // UserList doesn't have pages, compute it
       const pages = Math.max(1, Math.ceil(result.total / result.size));
       setTotalPages(pages);
       setTotal(result.total);
@@ -127,10 +139,17 @@ export default function UsersPage() {
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    setPage(1);
-    setSearch(searchInput);
+  // Debounce search input
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setPage(1);
+      setSearch(searchInput);
+    }, 300);
+    return () => clearTimeout(id);
+  }, [searchInput]);
+
+  function openCreate() {
+    setShowCreateModal(true);
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -167,6 +186,7 @@ export default function UsersPage() {
   }
 
   function startEdit(u: UserResponse) {
+    if (!canWrite) return;
     setEditingUser(u);
     const hasCustom = u.custom_permissions.length > 0;
     setEditState({
@@ -209,7 +229,7 @@ export default function UsersPage() {
     }
   }
 
-  async function handleDelete(u: UserResponse) {
+  async function handleToggleStatus(u: UserResponse) {
     const ok = await confirm({
       message: t("users.deleteConfirm", { name: u.display_name }),
       danger: true,
@@ -283,26 +303,24 @@ export default function UsersPage() {
     disabled: boolean,
   ) {
     return (
-      <div className="flex flex-col gap-2">
+      <div className="field">
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
             checked={useCustom}
             onChange={e => setUseCustom(e.target.checked)}
             disabled={disabled}
-            className="accent-cyan-500"
           />
-          <span className="text-sm font-medium text-bluegray-600">{t("users.customPermissions")}</span>
+          <span className="field-label" style={{ marginBottom: 0 }}>{t("users.customPermissions")}</span>
         </label>
         {useCustom && (
-          <div className="border border-bluegray-200 rounded-xl p-3 space-y-3 max-h-56 overflow-y-auto">
+          <div className="border border-bluegray-200 rounded-xl p-3 mt-2 space-y-3 max-h-64 overflow-y-auto">
             <label className="flex items-center gap-2 cursor-pointer border-b border-bluegray-100 pb-2">
               <input
                 type="checkbox"
                 checked={perms.size === ALL_PERMISSIONS.length}
                 onChange={e => toggleAll(setter, e.target.checked)}
                 disabled={disabled}
-                className="accent-cyan-500"
               />
               <span className="text-xs font-semibold text-bluegray-700">{t("users.selectAll")}</span>
             </label>
@@ -318,7 +336,6 @@ export default function UsersPage() {
                       ref={el => { if (el) el.indeterminate = someChecked && !allChecked; }}
                       onChange={e => toggleGroupAll(setter, g.permissions, e.target.checked)}
                       disabled={disabled}
-                      className="accent-cyan-500"
                     />
                     <span className="text-xs font-semibold text-bluegray-600 uppercase tracking-wider">{t(`users.permGroup.${g.group}`, g.group)}</span>
                   </label>
@@ -330,7 +347,6 @@ export default function UsersPage() {
                           checked={perms.has(p)}
                           onChange={() => togglePerm(setter, p)}
                           disabled={disabled}
-                          className="accent-cyan-500"
                         />
                         <span className="text-xs text-bluegray-600">{p.split(":")[1]}</span>
                       </label>
@@ -345,199 +361,196 @@ export default function UsersPage() {
     );
   }
 
-  const inputCls =
-    "px-3 py-2 border border-bluegray-200 rounded-xl text-sm outline-none focus:border-cyan-400 focus:shadow-sm bg-white";
-
   if (!canRead) {
     return (
-      <div className="max-w-4xl mx-auto w-full">
-        <h1 className="text-2xl font-bold text-bluegray-800 mb-1 tracking-tight">{t("users.title")}</h1>
-        <div className="mt-8 bg-white rounded-2xl shadow px-6 py-12 text-center">
-          <svg className="w-12 h-12 text-bluegray-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-          </svg>
-          <p className="text-sm font-medium text-bluegray-500">{t("common.noAccess")}</p>
-        </div>
+      <div>
+        <PageHead title={t("users.title")} subtitle={t("users.subtitle")} />
+        <EmptyState title={t("common.noAccess")} />
       </div>
     );
   }
 
+  const roleChips: { value: string; label: string }[] = [
+    { value: "", label: t("users.allRoles") },
+    { value: "master_admin", label: t("users.roleMasterAdmin") },
+    { value: "admin", label: t("users.roleAdmin") },
+    { value: "hr", label: t("users.roleHr", "HR") },
+    { value: "employee", label: t("users.roleEmployee") },
+  ];
+
   return (
-    <div className="max-w-4xl mx-auto w-full">
-      <h1 className="text-2xl font-bold text-bluegray-800 mb-1 tracking-tight">{t("users.title")}</h1>
-      <p className="text-sm text-bluegray-400 mb-6">{t("users.subtitle")}</p>
+    <div>
+      <PageHead
+        title={t("users.title")}
+        subtitle={t("users.subtitle")}
+        actions={canWriteUsers && isMasterAdmin && <Button onClick={openCreate}>{t("users.addNew")}</Button>}
+      />
 
-      <div className="bg-white rounded-2xl shadow overflow-hidden">
-        <div className="flex justify-between items-center px-5 py-4 border-b border-bluegray-100">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-bluegray-700">{t("users.listTitle")}</span>
-            <span className="bg-cyan-50 text-cyan-700 text-xs font-semibold px-2 py-0.5 rounded-full">{total}</span>
+      <div className="mb-3">
+        <Searchbar
+          value={searchInput}
+          onChange={setSearchInput}
+          placeholder={t("users.searchPlaceholder")}
+        />
+      </div>
+
+      <div className="chip-row">
+        {roleChips.map((c) => (
+          <FilterChip
+            key={c.value || "all"}
+            active={roleFilter === c.value}
+            onClick={() => { setRoleFilter(c.value); setPage(1); }}
+          >
+            {c.label}
+          </FilterChip>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="py-10 text-center text-sm text-bluegray-400">{t("common.loading")}</div>
+      ) : users.length === 0 ? (
+        <EmptyState
+          title={search || roleFilter ? t("users.emptySearch") : t("users.emptyList")}
+        />
+      ) : (
+        <>
+          {/* Mobile list */}
+          <div className="md:hidden">
+            <ListCard>
+              {users.map((u) => (
+                <ListRow
+                  key={u.id}
+                  avatar={
+                    <div
+                      className="flex items-center justify-center w-full h-full rounded-full text-sm font-semibold"
+                      style={{ background: "var(--brand-50, #ecfeff)", color: "var(--brand-700, #0e7490)" }}
+                    >
+                      {initials(u.display_name)}
+                    </div>
+                  }
+                  title={
+                    <span>
+                      {u.display_name}
+                      {u.must_change_password && (
+                        <span className="ml-2 text-[10px] text-amber-600 font-medium">{t("users.mustChangePw")}</span>
+                      )}
+                    </span>
+                  }
+                  subtitle={
+                    <span className="flex items-center gap-2 flex-wrap">
+                      <span>@{u.username}</span>
+                      <span>·</span>
+                      <StatusPill variant={roleVariant(u.role)}>{roleLabel(u.role, t)}</StatusPill>
+                    </span>
+                  }
+                  metric={{
+                    value: (
+                      <StatusPill variant={u.is_active ? "success" : "neutral"}>
+                        {u.is_active ? t("users.active") : t("users.inactive")}
+                      </StatusPill>
+                    ),
+                  }}
+                  onClick={canWrite ? () => startEdit(u) : undefined}
+                />
+              ))}
+            </ListCard>
           </div>
-          {isMasterAdmin && (
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl text-xs font-semibold cursor-pointer transition-colors"
-            >
-              + {t("users.addNew")}
-            </button>
-          )}
-        </div>
 
-        <div className="px-5 pt-3 pb-3">
-          <form onSubmit={handleSearch} className="flex gap-2 items-center flex-wrap">
-            <input
-              type="text"
-              placeholder={t("users.searchPlaceholder")}
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              className={`flex-1 min-w-0 ${inputCls}`}
-            />
-            <select
-              value={roleFilter}
-              onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
-              className={inputCls}
-            >
-              <option value="">{t("users.allRoles")}</option>
-              <option value="admin">{t("users.roleAdmin")}</option>
-              <option value="employee">{t("users.roleEmployee")}</option>
-            </select>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl text-sm font-semibold cursor-pointer transition-colors"
-            >
-              {t("common.search")}
-            </button>
-            {(search || roleFilter) && (
-              <button
-                type="button"
-                className="px-3 py-2 text-bluegray-500 border border-bluegray-200 rounded-xl text-sm font-medium hover:bg-bluegray-50 cursor-pointer"
-                onClick={() => { setSearchInput(""); setSearch(""); setRoleFilter(""); setPage(1); }}
-              >
-                {t("common.clear")}
-              </button>
-            )}
-          </form>
-        </div>
-
-        {loading ? (
-          <div className="px-5 py-10 text-center text-sm text-bluegray-400">{t("common.loading")}</div>
-        ) : users.length === 0 ? (
-          <div className="px-5 py-10 text-center text-sm text-bluegray-400">
-            {search || roleFilter ? t("users.emptySearch") : t("users.emptyList")}
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr>
-                    <th className="hidden sm:table-cell bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("common.id")}</th>
-                    <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("users.nameLabel")}</th>
-                    <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("users.usernameLabel")}</th>
-                    <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("users.roleLabel")}</th>
-                    <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("common.status")}</th>
-                    <th className="hidden sm:table-cell bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("users.lastLogin")}</th>
+          {/* Desktop table */}
+          <ListCard className="hidden md:block overflow-hidden">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>{t("users.nameLabel")}</th>
+                  <th>{t("users.usernameLabel")}</th>
+                  <th>{t("users.roleLabel")}</th>
+                  <th>{t("users.lastLogin")}</th>
+                  <th>{t("common.status")}</th>
+                  {canWrite && <th>{t("common.actions")}</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((u) => (
+                  <tr key={u.id}>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="flex items-center justify-center w-8 h-8 rounded-full text-xs font-semibold"
+                          style={{ background: "var(--brand-50, #ecfeff)", color: "var(--brand-700, #0e7490)" }}
+                        >
+                          {initials(u.display_name)}
+                        </div>
+                        <div>
+                          <div>{u.display_name}</div>
+                          {u.must_change_password && (
+                            <span className="text-[10px] text-amber-600 font-medium">{t("users.mustChangePw")}</span>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td>{u.username}</td>
+                    <td>
+                      <StatusPill variant={roleVariant(u.role)}>{roleLabel(u.role, t)}</StatusPill>
+                    </td>
+                    <td>
+                      {u.last_login_at ? new Date(u.last_login_at).toLocaleDateString() : t("users.never")}
+                    </td>
+                    <td>
+                      <StatusPill variant={u.is_active ? "success" : "neutral"}>
+                        {u.is_active ? t("users.active") : t("users.inactive")}
+                      </StatusPill>
+                    </td>
                     {canWrite && (
-                      <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-4 py-3 text-left w-28">{t("common.actions")}</th>
+                      <td>
+                        <div className="flex gap-1 items-center">
+                          <Button variant="ghost" size="sm" onClick={() => startEdit(u)} disabled={deletingId !== null}>
+                            {t("common.edit")}
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => { setResetUser(u); setNewPassword(""); }} disabled={deletingId !== null}>
+                            {t("users.resetPassword")}
+                          </Button>
+                          {u.role !== "master_admin" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleToggleStatus(u)}
+                              disabled={deletingId !== null}
+                            >
+                              {u.is_active ? t("users.inactive") : t("users.active")}
+                            </Button>
+                          )}
+                        </div>
+                      </td>
                     )}
                   </tr>
-                </thead>
-                <tbody>
-                  {users.map((u) => (
-                    <tr key={u.id} className="hover:bg-bluegray-50">
-                      <td className="hidden sm:table-cell px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
-                        <span className="text-bluegray-400 text-xs">#{u.id}</span>
-                      </td>
-                      <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
-                        <div>{u.display_name}</div>
-                        {u.must_change_password && (
-                          <span className="text-[10px] text-amber-600 font-medium">{t("users.mustChangePw")}</span>
-                        )}
-                      </td>
-                      <td className="px-5 py-3 text-sm text-bluegray-500 border-b border-bluegray-100">
-                        {u.username}
-                      </td>
-                      <td className="px-5 py-3 border-b border-bluegray-100">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${roleBadge(u.role)}`}>
-                          {roleLabel(u.role, t)}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3 border-b border-bluegray-100">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${u.is_active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
-                          {u.is_active ? t("users.active") : t("users.inactive")}
-                        </span>
-                      </td>
-                      <td className="hidden sm:table-cell px-5 py-3 text-sm text-bluegray-400 border-b border-bluegray-100">
-                        {u.last_login_at ? new Date(u.last_login_at).toLocaleDateString() : t("users.never")}
-                      </td>
-                      {canWrite && (
-                        <td className="px-4 py-3 border-b border-bluegray-100">
-                          <div className="flex gap-1.5 items-center">
-                            <button
-                              onClick={() => startEdit(u)}
-                              disabled={deletingId !== null}
-                              title={t("common.edit")}
-                              className="p-1.5 text-cyan-600 border border-cyan-200 rounded-lg hover:bg-cyan-50 cursor-pointer disabled:opacity-40"
-                            >
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={() => { setResetUser(u); setNewPassword(""); }}
-                              disabled={deletingId !== null}
-                              title={t("users.resetPassword")}
-                              className="p-1.5 text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-50 cursor-pointer disabled:opacity-40"
-                            >
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                              </svg>
-                            </button>
-                            {u.role !== "master_admin" && (
-                            <button
-                              onClick={() => handleDelete(u)}
-                              disabled={deletingId !== null}
-                              title={t("common.delete")}
-                              className="p-1.5 text-red-500 border border-red-200 rounded-lg hover:bg-red-50 cursor-pointer disabled:opacity-40"
-                            >
-                              {deletingId === u.id
-                                ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                                : <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                              }
-                            </button>
-                            )}
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                ))}
+              </tbody>
+            </table>
+          </ListCard>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between gap-2 mt-3 text-sm text-bluegray-500">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => p - 1)}
+                disabled={page <= 1}
+              >
+                {t("common.previous")}
+              </Button>
+              <span className="text-xs">{t("common.pageOf", { page, total: totalPages })}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => p + 1)}
+                disabled={page >= totalPages}
+              >
+                {t("common.next")}
+              </Button>
             </div>
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-bluegray-100 text-sm text-bluegray-500">
-                <button
-                  className={`px-3 py-1.5 border rounded-lg text-sm cursor-pointer ${page <= 1 ? "bg-bluegray-50 text-bluegray-300 border-bluegray-100 cursor-not-allowed" : "bg-white text-bluegray-700 border-bluegray-200 hover:bg-bluegray-50"}`}
-                  onClick={() => setPage((p) => p - 1)}
-                  disabled={page <= 1}
-                >
-                  <span className="sm:hidden">←</span>
-                  <span className="hidden sm:inline">← {t("common.previous")}</span>
-                </button>
-                <span className="text-xs">{t("common.pageOf", { page, total: totalPages })}</span>
-                <button
-                  className={`px-3 py-1.5 border rounded-lg text-sm cursor-pointer ${page >= totalPages ? "bg-bluegray-50 text-bluegray-300 border-bluegray-100 cursor-not-allowed" : "bg-white text-bluegray-700 border-bluegray-200 hover:bg-bluegray-50"}`}
-                  onClick={() => setPage((p) => p + 1)}
-                  disabled={page >= totalPages}
-                >
-                  <span className="sm:hidden">→</span>
-                  <span className="hidden sm:inline">{t("common.next")} →</span>
-                </button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+          )}
+        </>
+      )}
 
       {/* Create modal */}
       <Modal
@@ -549,50 +562,50 @@ export default function UsersPage() {
         }}
         title={t("users.addNew")}
       >
-        <form onSubmit={handleCreate} noValidate className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("users.nameLabel")} <span className="text-red-400">*</span></label>
+        <form onSubmit={handleCreate} noValidate className="flex flex-col gap-3">
+          <div className="field">
+            <label className="field-label">{t("users.nameLabel")} <span className="text-red-400">*</span></label>
             <input
               type="text"
               placeholder={t("users.namePlaceholder")}
               value={createState.display_name}
               onChange={(e) => { setCreateState((s) => ({ ...s, display_name: e.target.value })); setCreateErrors(prev => { const n = {...prev}; delete n.display_name; return n; }); }}
-              className={`${inputCls} ${createErrors.display_name ? "!border-red-400" : ""}`}
+              className={`input ${createErrors.display_name ? "!border-red-400" : ""}`}
               disabled={createSubmitting}
               autoFocus
             />
-            <p className="text-xs text-red-600 min-h-4">{createErrors.display_name ?? "\u00A0"}</p>
+            {createErrors.display_name && <p className="text-xs text-red-600 mt-1">{createErrors.display_name}</p>}
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("users.usernameLabel")} <span className="text-red-400">*</span></label>
+          <div className="field">
+            <label className="field-label">{t("users.usernameLabel")} <span className="text-red-400">*</span></label>
             <input
               type="text"
               placeholder={t("users.usernamePlaceholder")}
               value={createState.username}
               onChange={(e) => { setCreateState((s) => ({ ...s, username: e.target.value })); setCreateErrors(prev => { const n = {...prev}; delete n.username; return n; }); }}
-              className={`${inputCls} ${createErrors.username ? "!border-red-400" : ""}`}
+              className={`input ${createErrors.username ? "!border-red-400" : ""}`}
               disabled={createSubmitting}
             />
-            <p className="text-xs text-red-600 min-h-4">{createErrors.username ?? "\u00A0"}</p>
+            {createErrors.username && <p className="text-xs text-red-600 mt-1">{createErrors.username}</p>}
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("users.passwordLabel")} <span className="text-red-400">*</span></label>
+          <div className="field">
+            <label className="field-label">{t("users.passwordLabel")} <span className="text-red-400">*</span></label>
             <input
               type="password"
               placeholder={t("users.passwordPlaceholder")}
               value={createState.password}
               onChange={(e) => { setCreateState((s) => ({ ...s, password: e.target.value })); setCreateErrors(prev => { const n = {...prev}; delete n.password; return n; }); }}
-              className={`${inputCls} ${createErrors.password ? "!border-red-400" : ""}`}
+              className={`input ${createErrors.password ? "!border-red-400" : ""}`}
               disabled={createSubmitting}
             />
-            <p className="text-xs text-red-600 min-h-4">{createErrors.password ?? "\u00A0"}</p>
+            {createErrors.password && <p className="text-xs text-red-600 mt-1">{createErrors.password}</p>}
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("users.roleLabel")}</label>
+          <div className="field">
+            <label className="field-label">{t("users.roleLabel")}</label>
             <select
               value={createState.role}
               onChange={(e) => setCreateState((s) => ({ ...s, role: e.target.value }))}
-              className={inputCls}
+              className="input"
               disabled={createSubmitting}
             >
               {ROLES.map((r) => (
@@ -600,24 +613,24 @@ export default function UsersPage() {
               ))}
             </select>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("users.emailLabel")}</label>
+          <div className="field">
+            <label className="field-label">{t("users.emailLabel")}</label>
             <input
               type="email"
               placeholder={t("users.emailPlaceholder")}
               value={createState.email}
               onChange={(e) => setCreateState((s) => ({ ...s, email: e.target.value }))}
-              className={inputCls}
+              className="input"
               disabled={createSubmitting}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("users.phoneLabel")}</label>
+          <div className="field">
+            <label className="field-label">{t("users.phoneLabel")}</label>
             <input
               type="tel"
               value={createState.phone_number}
               onChange={(e) => setCreateState((s) => ({ ...s, phone_number: e.target.value }))}
-              className={inputCls}
+              className="input"
               disabled={createSubmitting}
             />
           </div>
@@ -630,24 +643,20 @@ export default function UsersPage() {
           )}
           {createErrors.api && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{createErrors.api}</p>}
           <div className="flex justify-end gap-2 pt-2">
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={() => {
                 setShowCreateModal(false);
                 setCreateErrors({});
                 setCreateState({ display_name: "", username: "", password: "", role: "employee", email: "", phone_number: "", useCustomPerms: false, permissions: new Set() });
               }}
-              className="px-4 py-2 rounded-xl text-sm font-medium text-bluegray-600 border border-bluegray-200 hover:bg-bluegray-50 cursor-pointer"
             >
               {t("common.cancel")}
-            </button>
-            <button
-              type="submit"
-              disabled={createSubmitting}
-              className={`px-5 py-2 rounded-xl text-sm font-semibold text-white ${createSubmitting ? "bg-cyan-300 cursor-not-allowed" : "bg-cyan-500 hover:bg-cyan-600 cursor-pointer transition-colors"}`}
-            >
+            </Button>
+            <Button type="submit" disabled={createSubmitting}>
               {createSubmitting ? t("users.creating") : t("users.create")}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>
@@ -658,24 +667,24 @@ export default function UsersPage() {
         onClose={() => { setEditingUser(null); setEditError(null); }}
         title={editingUser ? editingUser.display_name : t("common.edit")}
       >
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("users.nameLabel")}</label>
+        <div className="flex flex-col gap-3">
+          <div className="field">
+            <label className="field-label">{t("users.nameLabel")}</label>
             <input
               type="text"
               value={editState.display_name}
               onChange={(e) => setEditState((s) => ({ ...s, display_name: e.target.value }))}
-              className={inputCls}
+              className="input"
               disabled={editSubmitting}
               autoFocus
             />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("users.roleLabel")}</label>
+          <div className="field">
+            <label className="field-label">{t("users.roleLabel")}</label>
             <select
               value={editState.role}
               onChange={(e) => setEditState((s) => ({ ...s, role: e.target.value }))}
-              className={inputCls}
+              className="input"
               disabled={editSubmitting}
             >
               {ROLES.map((r) => (
@@ -683,24 +692,24 @@ export default function UsersPage() {
               ))}
             </select>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("users.emailLabel")}</label>
+          <div className="field">
+            <label className="field-label">{t("users.emailLabel")}</label>
             <input
               type="email"
               placeholder={t("users.emailPlaceholder")}
               value={editState.email}
               onChange={(e) => setEditState((s) => ({ ...s, email: e.target.value }))}
-              className={inputCls}
+              className="input"
               disabled={editSubmitting}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("users.phoneLabel")}</label>
+          <div className="field">
+            <label className="field-label">{t("users.phoneLabel")}</label>
             <input
               type="tel"
               value={editState.phone_number}
               onChange={(e) => setEditState((s) => ({ ...s, phone_number: e.target.value }))}
-              className={inputCls}
+              className="input"
               disabled={editSubmitting}
             />
           </div>
@@ -712,20 +721,41 @@ export default function UsersPage() {
             editSubmitting,
           )}
           {editError && <p className="text-xs text-red-600">{editError}</p>}
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              onClick={() => { setEditingUser(null); setEditError(null); }}
-              className="px-4 py-2 rounded-xl text-sm font-medium text-bluegray-600 border border-bluegray-200 hover:bg-bluegray-50 cursor-pointer"
-            >
-              {t("common.cancel")}
-            </button>
-            <button
-              onClick={handleUpdate}
-              disabled={editSubmitting}
-              className={`px-5 py-2 rounded-xl text-sm font-semibold text-white ${editSubmitting ? "bg-cyan-300 cursor-not-allowed" : "bg-cyan-500 hover:bg-cyan-600 cursor-pointer transition-colors"}`}
-            >
-              {editSubmitting ? t("common.saving") : t("common.save")}
-            </button>
+          <div className="flex flex-wrap justify-between gap-2 pt-2">
+            {editingUser && (
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { if (editingUser) { setResetUser(editingUser); setNewPassword(""); setEditingUser(null); } }}
+                >
+                  {t("users.resetPassword")}
+                </Button>
+                {editingUser.role !== "master_admin" && (
+                  <Button
+                    type="button"
+                    variant={editingUser.is_active ? "danger" : "outline"}
+                    size="sm"
+                    onClick={() => { const u = editingUser; setEditingUser(null); handleToggleStatus(u); }}
+                  >
+                    {editingUser.is_active ? t("users.inactive") : t("users.active")}
+                  </Button>
+                )}
+              </div>
+            )}
+            <div className="flex gap-2 ml-auto">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => { setEditingUser(null); setEditError(null); }}
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button onClick={handleUpdate} disabled={editSubmitting}>
+                {editSubmitting ? t("common.saving") : t("common.save")}
+              </Button>
+            </div>
           </div>
         </div>
       </Modal>
@@ -736,36 +766,32 @@ export default function UsersPage() {
         onClose={() => { setResetUser(null); setNewPassword(""); setResetErrors({}); }}
         title={resetUser ? t("users.resetPasswordTitle", { name: resetUser.display_name }) : ""}
       >
-        <form onSubmit={handleResetPassword} noValidate className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("users.newPasswordLabel")} <span className="text-red-400">*</span></label>
+        <form onSubmit={handleResetPassword} noValidate className="flex flex-col gap-3">
+          <div className="field">
+            <label className="field-label">{t("users.newPasswordLabel")} <span className="text-red-400">*</span></label>
             <input
               type="password"
               placeholder={t("users.passwordPlaceholder")}
               value={newPassword}
               onChange={(e) => { setNewPassword(e.target.value); setResetErrors(prev => { const n = {...prev}; delete n.password; return n; }); }}
-              className={`${inputCls} ${resetErrors.password ? "!border-red-400" : ""}`}
+              className={`input ${resetErrors.password ? "!border-red-400" : ""}`}
               disabled={resetSubmitting}
               autoFocus
             />
-            <p className="text-xs text-red-600 min-h-4">{resetErrors.password ?? "\u00A0"}</p>
+            {resetErrors.password && <p className="text-xs text-red-600 mt-1">{resetErrors.password}</p>}
           </div>
           {resetErrors.api && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{resetErrors.api}</p>}
           <div className="flex justify-end gap-2 pt-2">
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={() => { setResetUser(null); setNewPassword(""); setResetErrors({}); }}
-              className="px-4 py-2 rounded-xl text-sm font-medium text-bluegray-600 border border-bluegray-200 hover:bg-bluegray-50 cursor-pointer"
             >
               {t("common.cancel")}
-            </button>
-            <button
-              type="submit"
-              disabled={resetSubmitting || !newPassword}
-              className={`px-5 py-2 rounded-xl text-sm font-semibold text-white ${resetSubmitting || !newPassword ? "bg-cyan-300 cursor-not-allowed" : "bg-cyan-500 hover:bg-cyan-600 cursor-pointer transition-colors"}`}
-            >
+            </Button>
+            <Button type="submit" disabled={resetSubmitting || !newPassword}>
               {resetSubmitting ? t("users.resetting") : t("users.resetPassword")}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>

@@ -5,6 +5,18 @@ import { useConfirm } from "../contexts/ConfirmContext";
 import { useAuth } from "../contexts/AuthContext";
 import { Modal } from "../components/Modal";
 import {
+  PageHead,
+  Button,
+  FilterChip,
+  ListCard,
+  ListRow,
+  EmptyState,
+  StatusPill,
+  initials,
+  fmtMoney,
+  type StatusVariant,
+} from "../components/ui";
+import {
   generatePayroll,
   listPayroll,
   getPayroll,
@@ -14,10 +26,10 @@ import {
 } from "../api/payroll";
 import type { PayrollResponse, PayrollStatus, Payslip, CommissionLine } from "../types";
 
-function statusBadge(status: string) {
-  if (status === "APPROVED") return "bg-cyan-100 text-cyan-700";
-  if (status === "PAID") return "bg-green-100 text-green-700";
-  return "bg-amber-100 text-amber-700";
+function statusVariant(status: string): StatusVariant {
+  if (status === "PAID") return "success";
+  if (status === "APPROVED") return "info";
+  return "warn";
 }
 
 function statusLabel(status: string, t: (k: string) => string) {
@@ -51,9 +63,10 @@ export default function PayrollPage() {
   const [payrolls, setPayrolls] = useState<PayrollResponse[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
+  const [, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<PayrollStatus | "">("");
+  const [monthFilter, setMonthFilter] = useState("");
 
   // Generate modal
   const [showGenerateModal, setShowGenerateModal] = useState(false);
@@ -87,6 +100,14 @@ export default function PayrollPage() {
   }, [page, statusFilter, t]);
 
   useEffect(() => { fetchPayrolls(); }, [fetchPayrolls]);
+
+  const filteredPayrolls = monthFilter
+    ? payrolls.filter(p => p.period_start.startsWith(monthFilter))
+    : payrolls;
+
+  function openCreate() {
+    setShowGenerateModal(true);
+  }
 
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault();
@@ -172,216 +193,255 @@ export default function PayrollPage() {
     }
   }
 
-  const inputCls = "px-3 py-2 border border-bluegray-200 rounded-xl text-sm outline-none focus:border-cyan-400 focus:shadow-sm bg-white";
-
   if (!canRead) {
     return (
-      <div className="max-w-4xl mx-auto w-full">
-        <h1 className="text-2xl font-bold text-bluegray-800 mb-1 tracking-tight">{t("payroll.title")}</h1>
-        <div className="mt-8 bg-white rounded-2xl shadow px-6 py-12 text-center">
-          <svg className="w-12 h-12 text-bluegray-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-          </svg>
-          <p className="text-sm font-medium text-bluegray-500">{t("common.noAccess")}</p>
-        </div>
+      <div className="page">
+        <PageHead title={t("payroll.title", "Maosh")} subtitle={t("payroll.subtitle")} />
+        <ListCard>
+          <EmptyState title={t("common.noAccess")} />
+        </ListCard>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto w-full">
-      <h1 className="text-2xl font-bold text-bluegray-800 mb-1 tracking-tight">{t("payroll.title")}</h1>
-      <p className="text-sm text-bluegray-400 mb-6">{t("payroll.subtitle")}</p>
+    <div className="page">
+      <PageHead
+        title={t("payroll.title", "Maosh")}
+        subtitle={t("payroll.subtitle")}
+        actions={canGenerate && <Button onClick={openCreate}>{t("payroll.addNew", t("payroll.generate"))}</Button>}
+      />
 
-      <div className="bg-white rounded-2xl shadow overflow-hidden">
-        <div className="flex justify-between items-center px-5 py-4 border-b border-bluegray-100">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-bluegray-700">{t("payroll.listTitle")}</span>
-            <span className="bg-cyan-50 text-cyan-700 text-xs font-semibold px-2 py-0.5 rounded-full">{total}</span>
-          </div>
-          {canGenerate && (
-            <button onClick={() => setShowGenerateModal(true)} className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl text-xs font-semibold cursor-pointer transition-colors">
-              + {t("payroll.generate")}
-            </button>
-          )}
-        </div>
-
-        <div className="px-5 pt-3 pb-3">
-          <div className="flex gap-2 items-center">
-            <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value as PayrollStatus | ""); setPage(1); }} className={inputCls}>
-              <option value="">{t("payroll.allStatuses")}</option>
-              <option value="DRAFT">{t("payroll.statusDraft")}</option>
-              <option value="APPROVED">{t("payroll.statusApproved")}</option>
-              <option value="PAID">{t("payroll.statusPaid")}</option>
-            </select>
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="px-5 py-10 text-center text-sm text-bluegray-400">{t("common.loading")}</div>
-        ) : payrolls.length === 0 ? (
-          <div className="px-5 py-10 text-center text-sm text-bluegray-400">{t("payroll.emptyList")}</div>
-        ) : (
-          <>
-            <div className="overflow-x-auto"><table className="w-full border-collapse">
-              <thead>
-                <tr>
-                  <th className="hidden sm:table-cell bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("common.id")}</th>
-                  <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("payroll.period")}</th>
-                  <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("common.status")}</th>
-                  <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-right">{t("payroll.totalAmount")}</th>
-                  <th className="hidden sm:table-cell bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-right">{t("payroll.payslipCount")}</th>
-                  <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-4 py-3 text-left w-32">{t("common.actions")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payrolls.map(p => (
-                  <tr key={p.id} className="hover:bg-bluegray-50">
-                    <td className="hidden sm:table-cell px-5 py-3 text-sm text-bluegray-400 border-b border-bluegray-100">#{p.id}</td>
-                    <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">{formatPeriod(p.period_start, i18n.language)}</td>
-                    <td className="px-5 py-3 border-b border-bluegray-100">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${statusBadge(p.status)}`}>
-                        {statusLabel(p.status, t)}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100 text-right tabular-nums">{p.total_amount.toLocaleString()}</td>
-                    <td className="hidden sm:table-cell px-5 py-3 text-sm text-bluegray-500 border-b border-bluegray-100 text-right">{p.payslip_count}</td>
-                    <td className="px-4 py-3 border-b border-bluegray-100">
-                      <div className="flex gap-1.5 items-center">
-                        <button onClick={() => handleView(p)}
-                          className="px-2.5 py-1 text-xs font-medium text-bluegray-600 border border-bluegray-200 rounded-lg hover:bg-bluegray-50 cursor-pointer">
-                          {t("payroll.view")}
-                        </button>
-                        {p.status === "DRAFT" && canApprove && (
-                          <button onClick={() => handleApprove(p)} disabled={actionId === p.id}
-                            className="px-2.5 py-1 text-xs font-medium text-cyan-600 border border-cyan-200 rounded-lg hover:bg-cyan-50 cursor-pointer disabled:opacity-40">
-                            {t("payroll.approveAction")}
-                          </button>
-                        )}
-                        {p.status === "APPROVED" && canApprove && (
-                          <button onClick={() => handleMarkPaid(p)} disabled={actionId === p.id}
-                            className="px-2.5 py-1 text-xs font-medium text-green-600 border border-green-200 rounded-lg hover:bg-green-50 cursor-pointer disabled:opacity-40 whitespace-nowrap">
-                            {t("payroll.markPaidAction")}
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table></div>
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-bluegray-100 text-sm text-bluegray-500">
-                <button className={`px-3 py-1.5 border rounded-lg text-sm cursor-pointer ${page <= 1 ? "bg-bluegray-50 text-bluegray-300 border-bluegray-100 cursor-not-allowed" : "bg-white text-bluegray-700 border-bluegray-200 hover:bg-bluegray-50"}`} onClick={() => setPage(p => p - 1)} disabled={page <= 1}>
-                  <span className="sm:hidden">&larr;</span><span className="hidden sm:inline">&larr; {t("common.previous")}</span>
-                </button>
-                <span className="text-xs">{t("common.pageOf", { page, total: totalPages })}</span>
-                <button className={`px-3 py-1.5 border rounded-lg text-sm cursor-pointer ${page >= totalPages ? "bg-bluegray-50 text-bluegray-300 border-bluegray-100 cursor-not-allowed" : "bg-white text-bluegray-700 border-bluegray-200 hover:bg-bluegray-50"}`} onClick={() => setPage(p => p + 1)} disabled={page >= totalPages}>
-                  <span className="sm:hidden">&rarr;</span><span className="hidden sm:inline">{t("common.next")} &rarr;</span>
-                </button>
-              </div>
-            )}
-          </>
-        )}
+      {/* Month picker row */}
+      <div className="field" style={{ marginBottom: 12 }}>
+        <label className="field-label">{t("payroll.month")}</label>
+        <input
+          type="month"
+          className="input"
+          value={monthFilter}
+          onChange={(e) => setMonthFilter(e.target.value)}
+        />
       </div>
+
+      {/* Status filter chip row */}
+      <div className="chip-row">
+        <FilterChip active={statusFilter === ""} onClick={() => { setStatusFilter(""); setPage(1); }}>
+          {t("payroll.allStatuses")}
+        </FilterChip>
+        <FilterChip active={statusFilter === "DRAFT"} onClick={() => { setStatusFilter("DRAFT"); setPage(1); }}>
+          {t("payroll.statusDraft")}
+        </FilterChip>
+        <FilterChip active={statusFilter === "APPROVED"} onClick={() => { setStatusFilter("APPROVED"); setPage(1); }}>
+          {t("payroll.statusApproved")}
+        </FilterChip>
+        <FilterChip active={statusFilter === "PAID"} onClick={() => { setStatusFilter("PAID"); setPage(1); }}>
+          {t("payroll.statusPaid")}
+        </FilterChip>
+      </div>
+
+      {loading ? (
+        <ListCard><div style={{ padding: 32, textAlign: "center", fontSize: 13, color: "#94a3b8" }}>{t("common.loading")}</div></ListCard>
+      ) : filteredPayrolls.length === 0 ? (
+        <ListCard>
+          <EmptyState title={t("payroll.emptyList")} />
+        </ListCard>
+      ) : (
+        <>
+          {/* Mobile list */}
+          <div className="md:hidden">
+            <ListCard>
+              {filteredPayrolls.map(p => {
+                const name = `#${p.id}`;
+                return (
+                  <ListRow
+                    key={p.id}
+                    avatar={initials(name)}
+                    title={name}
+                    subtitle={
+                      <>
+                        {formatPeriod(p.period_start, i18n.language)} ·{" "}
+                        <StatusPill variant={statusVariant(p.status)}>{statusLabel(p.status, t)}</StatusPill>
+                      </>
+                    }
+                    metric={{ value: fmtMoney(p.total_amount), unit: "so'm" }}
+                    onClick={() => handleView(p)}
+                  />
+                );
+              })}
+            </ListCard>
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block">
+            <ListCard>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>{t("payroll.employeeId")}</th>
+                    <th>{t("payroll.period")}</th>
+                    <th style={{ textAlign: "right" }}>{t("payroll.baseSalary")}</th>
+                    <th style={{ textAlign: "right" }}>{t("payroll.commissionAmount")}</th>
+                    <th style={{ textAlign: "right" }}>{t("payroll.payslipCount")}</th>
+                    <th style={{ textAlign: "right" }}>{t("payroll.totalAmount")}</th>
+                    <th>{t("common.status")}</th>
+                    <th>{t("common.actions")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredPayrolls.map(p => (
+                    <tr key={p.id} onClick={() => handleView(p)} style={{ cursor: "pointer" }}>
+                      <td>#{p.id}</td>
+                      <td>{formatPeriod(p.period_start, i18n.language)}</td>
+                      <td style={{ textAlign: "right" }} className="num">—</td>
+                      <td style={{ textAlign: "right" }} className="num">—</td>
+                      <td style={{ textAlign: "right" }} className="num">{p.payslip_count}</td>
+                      <td style={{ textAlign: "right" }} className="num">{fmtMoney(p.total_amount)}</td>
+                      <td><StatusPill variant={statusVariant(p.status)}>{statusLabel(p.status, t)}</StatusPill></td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          {p.status === "DRAFT" && canApprove && (
+                            <Button size="sm" variant="outline" onClick={() => handleApprove(p)} disabled={actionId === p.id}>
+                              {t("payroll.approveAction")}
+                            </Button>
+                          )}
+                          {p.status === "APPROVED" && canApprove && (
+                            <Button size="sm" onClick={() => handleMarkPaid(p)} disabled={actionId === p.id}>
+                              {t("payroll.markPaidAction", "To'lash")}
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </ListCard>
+          </div>
+
+          {totalPages > 1 && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 4px", fontSize: 13, color: "#64748b" }}>
+              <Button size="sm" variant="outline" onClick={() => setPage(p => p - 1)} disabled={page <= 1}>
+                &larr; {t("common.previous")}
+              </Button>
+              <span style={{ fontSize: 12 }}>{t("common.pageOf", { page, total: totalPages })}</span>
+              <Button size="sm" variant="outline" onClick={() => setPage(p => p + 1)} disabled={page >= totalPages}>
+                {t("common.next")} &rarr;
+              </Button>
+            </div>
+          )}
+        </>
+      )}
 
       {/* Generate modal */}
       <Modal open={canGenerate && showGenerateModal} onClose={() => { setShowGenerateModal(false); setPeriodMonth(""); setGenerateErrors({}); }} title={t("payroll.generateTitle")}>
-        <form onSubmit={handleGenerate} noValidate className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("payroll.month")} <span className="text-red-400">*</span></label>
-            <input type="month" value={periodMonth} onChange={(e) => { setPeriodMonth(e.target.value); setGenerateErrors(prev => { const { month: _, ...rest } = prev; return rest; }); }} className={`${inputCls} ${generateErrors.month ? "!border-red-400" : ""}`} />
-            <p className="text-xs text-red-600 min-h-4">{generateErrors.month ?? "\u00A0"}</p>
+        <form onSubmit={handleGenerate} noValidate style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div className="field">
+            <label className="field-label">{t("payroll.month")} <span style={{ color: "#f87171" }}>*</span></label>
+            <input
+              type="month"
+              value={periodMonth}
+              onChange={(e) => { setPeriodMonth(e.target.value); setGenerateErrors(prev => { const { month: _, ...rest } = prev; return rest; }); }}
+              className="input"
+              style={generateErrors.month ? { borderColor: "#f87171" } : undefined}
+            />
+            <p style={{ fontSize: 12, color: "#dc2626", minHeight: 16, margin: 0 }}>{generateErrors.month ?? " "}</p>
           </div>
-          {generateErrors.api && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{generateErrors.api}</p>}
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={() => { setShowGenerateModal(false); setPeriodMonth(""); setGenerateErrors({}); }} className="px-4 py-2 rounded-xl text-sm font-medium text-bluegray-600 border border-bluegray-200 hover:bg-bluegray-50 cursor-pointer">{t("common.cancel")}</button>
-            <button type="submit" disabled={generating} className={`px-5 py-2 rounded-xl text-sm font-semibold text-white ${generating ? "bg-cyan-300 cursor-not-allowed" : "bg-cyan-500 hover:bg-cyan-600 cursor-pointer transition-colors"}`}>
+          {generateErrors.api && (
+            <p style={{ fontSize: 12, color: "#dc2626", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12, padding: "8px 12px", margin: 0 }}>
+              {generateErrors.api}
+            </p>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, paddingTop: 8 }}>
+            <Button type="button" variant="outline" onClick={() => { setShowGenerateModal(false); setPeriodMonth(""); setGenerateErrors({}); }}>
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" disabled={generating}>
               {generating ? t("payroll.generating") : t("payroll.generate")}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>
 
-      {/* View payroll modal */}
-      <Modal open={viewPayroll !== null} onClose={() => { setViewPayroll(null); setDetailPayslip(null); }} title={viewPayroll ? t("payroll.viewTitle", { id: viewPayroll.id, period: formatPeriod(viewPayroll.period_start, i18n.language) }) : ""}>
+      {/* View payroll / payslip detail modal */}
+      <Modal
+        open={viewPayroll !== null}
+        onClose={() => { setViewPayroll(null); setDetailPayslip(null); }}
+        title={viewPayroll ? t("payroll.viewTitle", { id: viewPayroll.id, period: formatPeriod(viewPayroll.period_start, i18n.language) }) : ""}
+        size="lg"
+      >
         {viewLoading ? (
-          <div className="py-8 text-center text-sm text-bluegray-400">{t("common.loading")}</div>
+          <div style={{ padding: 32, textAlign: "center", fontSize: 13, color: "#94a3b8" }}>{t("common.loading")}</div>
         ) : viewPayroll && (
-          <div className="flex flex-col gap-4">
-            <div className="flex gap-4 text-sm">
-              <div><span className="text-bluegray-400">{t("common.status")}:</span> <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${statusBadge(viewPayroll.status)}`}>{statusLabel(viewPayroll.status, t)}</span></div>
-              <div><span className="text-bluegray-400">{t("payroll.totalAmount")}:</span> <span className="font-semibold tabular-nums">{viewPayroll.total_amount.toLocaleString()}</span></div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ display: "flex", gap: 16, fontSize: 13, alignItems: "center", flexWrap: "wrap" }}>
+              <div>
+                <span style={{ color: "#94a3b8" }}>{t("common.status")}: </span>
+                <StatusPill variant={statusVariant(viewPayroll.status)}>{statusLabel(viewPayroll.status, t)}</StatusPill>
+              </div>
+              <div>
+                <span style={{ color: "#94a3b8" }}>{t("payroll.totalAmount")}: </span>
+                <span style={{ fontWeight: 600 }}>{fmtMoney(viewPayroll.total_amount)} so'm</span>
+              </div>
             </div>
 
             {!viewPayroll.payslips || viewPayroll.payslips.length === 0 ? (
-              <div className="py-6 text-center text-sm text-bluegray-400">{t("payroll.noPayslips")}</div>
+              <EmptyState title={t("payroll.noPayslips")} />
             ) : (
-              <div className="border border-bluegray-200 rounded-xl overflow-hidden">
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    <tr>
-                      <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase px-4 py-2 text-left">{t("payroll.employeeId")}</th>
-                      <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase px-4 py-2 text-right">{t("payroll.baseSalary")}</th>
-                      <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase px-4 py-2 text-right">{t("payroll.commissionAmount")}</th>
-                      <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase px-4 py-2 text-right">{t("payroll.totalPayslip")}</th>
-                      <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase px-4 py-2 w-16"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {viewPayroll.payslips.map(ps => (
-                      <tr key={ps.id} className="hover:bg-bluegray-50">
-                        <td className="px-4 py-2 text-bluegray-700 border-b border-bluegray-100">{ps.employee_name ?? `#${ps.employee_id}`}</td>
-                        <td className="px-4 py-2 text-bluegray-700 border-b border-bluegray-100 text-right tabular-nums">{ps.base_salary.toLocaleString()}</td>
-                        <td className="px-4 py-2 text-bluegray-700 border-b border-bluegray-100 text-right tabular-nums">{ps.commission_amount.toLocaleString()}</td>
-                        <td className="px-4 py-2 text-bluegray-700 border-b border-bluegray-100 text-right tabular-nums font-semibold">{ps.total_amount.toLocaleString()}</td>
-                        <td className="px-4 py-2 border-b border-bluegray-100">
-                          {ps.commission_amount > 0 && (
-                            <button onClick={() => handlePayslipDetail(ps)} className="text-xs text-cyan-600 hover:underline cursor-pointer">
-                              {t("payroll.details")}
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <ListCard>
+                {viewPayroll.payslips.map(ps => (
+                  <ListRow
+                    key={ps.id}
+                    avatar={initials(ps.employee_name ?? `#${ps.employee_id}`)}
+                    title={ps.employee_name ?? `#${ps.employee_id}`}
+                    subtitle={
+                      <>
+                        {t("payroll.baseSalary")}: {fmtMoney(ps.base_salary)} · {t("payroll.commissionAmount")}: {fmtMoney(ps.commission_amount)}
+                      </>
+                    }
+                    metric={{ value: fmtMoney(ps.total_amount), unit: "so'm" }}
+                    onClick={ps.commission_amount > 0 ? () => handlePayslipDetail(ps) : undefined}
+                  />
+                ))}
+              </ListCard>
+            )}
+
+            {detailLoading && (
+              <div style={{ textAlign: "center", fontSize: 13, color: "#94a3b8" }}>{t("common.loading")}</div>
+            )}
+            {detailPayslip && detailPayslip.commission_lines && detailPayslip.commission_lines.length > 0 && (
+              <div>
+                <h4 style={{ fontSize: 12, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+                  {t("payroll.commissionLines")} — {detailPayslip.employee_name ?? `#${detailPayslip.employee_id}`}
+                </h4>
+                <ListCard>
+                  {detailPayslip.commission_lines.map((cl: CommissionLine, i: number) => (
+                    <ListRow
+                      key={i}
+                      title={`${t("payroll.batchId")} #${cl.batch_id} · ${t("payroll.productId")} #${cl.product_id}`}
+                      subtitle={
+                        <>
+                          {t("payroll.qty")}: {cl.batch_quantity.toLocaleString()} · {t("payroll.present")}: {cl.present_count} · {t("payroll.share")}: {cl.quantity_share} · {t("payroll.rate")}: {cl.rate_per_unit}
+                        </>
+                      }
+                      metric={{ value: fmtMoney(cl.amount), unit: "so'm" }}
+                    />
+                  ))}
+                </ListCard>
               </div>
             )}
 
-            {/* Commission detail inline */}
-            {detailLoading && <div className="text-center text-sm text-bluegray-400">{t("common.loading")}</div>}
-            {detailPayslip && detailPayslip.commission_lines && detailPayslip.commission_lines.length > 0 && (
-              <div>
-                <h4 className="text-xs font-semibold text-bluegray-500 uppercase tracking-wider mb-2">{t("payroll.commissionLines")} — {detailPayslip.employee_name ?? `#${detailPayslip.employee_id}`}</h4>
-                <div className="border border-bluegray-200 rounded-xl overflow-hidden overflow-x-auto">
-                  <table className="w-full border-collapse text-xs">
-                    <thead>
-                      <tr>
-                        <th className="bg-bluegray-50 font-semibold text-bluegray-500 uppercase px-3 py-2 text-left">{t("payroll.batchId")}</th>
-                        <th className="bg-bluegray-50 font-semibold text-bluegray-500 uppercase px-3 py-2 text-left">{t("payroll.productId")}</th>
-                        <th className="bg-bluegray-50 font-semibold text-bluegray-500 uppercase px-3 py-2 text-right">{t("payroll.qty")}</th>
-                        <th className="bg-bluegray-50 font-semibold text-bluegray-500 uppercase px-3 py-2 text-right">{t("payroll.present")}</th>
-                        <th className="bg-bluegray-50 font-semibold text-bluegray-500 uppercase px-3 py-2 text-right">{t("payroll.share")}</th>
-                        <th className="bg-bluegray-50 font-semibold text-bluegray-500 uppercase px-3 py-2 text-right">{t("payroll.rate")}</th>
-                        <th className="bg-bluegray-50 font-semibold text-bluegray-500 uppercase px-3 py-2 text-right">{t("payroll.amount")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {detailPayslip.commission_lines.map((cl: CommissionLine, i: number) => (
-                        <tr key={i}>
-                          <td className="px-3 py-1.5 text-bluegray-700 border-b border-bluegray-100">#{cl.batch_id}</td>
-                          <td className="px-3 py-1.5 text-bluegray-700 border-b border-bluegray-100">#{cl.product_id}</td>
-                          <td className="px-3 py-1.5 text-bluegray-700 border-b border-bluegray-100 text-right tabular-nums">{cl.batch_quantity.toLocaleString()}</td>
-                          <td className="px-3 py-1.5 text-bluegray-700 border-b border-bluegray-100 text-right">{cl.present_count}</td>
-                          <td className="px-3 py-1.5 text-bluegray-700 border-b border-bluegray-100 text-right tabular-nums">{cl.quantity_share}</td>
-                          <td className="px-3 py-1.5 text-bluegray-700 border-b border-bluegray-100 text-right tabular-nums">{cl.rate_per_unit}</td>
-                          <td className="px-3 py-1.5 text-bluegray-700 border-b border-bluegray-100 text-right tabular-nums font-semibold">{cl.amount.toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+            {viewPayroll.status === "APPROVED" && canApprove && (
+              <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: 8 }}>
+                <Button onClick={() => handleMarkPaid(viewPayroll)} disabled={actionId === viewPayroll.id}>
+                  {t("payroll.markPaidAction", "To'lash")}
+                </Button>
+              </div>
+            )}
+            {viewPayroll.status === "DRAFT" && canApprove && (
+              <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: 8 }}>
+                <Button onClick={() => handleApprove(viewPayroll)} disabled={actionId === viewPayroll.id}>
+                  {t("payroll.approveAction")}
+                </Button>
               </div>
             )}
           </div>

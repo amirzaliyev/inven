@@ -215,9 +215,16 @@ export interface TodayProduction {
   total_quantity: number;
   batch_count: number;
 }
+export interface TodaySale {
+  product_id: number;
+  product_name: string;
+  total_quantity: number;
+  order_count: number;
+}
 export interface DashboardData {
   stock_levels: StockLevel[];
   today_production: TodayProduction[];
+  today_sales: TodaySale[];
   order_stats: { draft: number; completed: number; cancelled: number };
   revenue_this_month: number;
   payroll_stats: { draft: number; approved: number; paid: number };

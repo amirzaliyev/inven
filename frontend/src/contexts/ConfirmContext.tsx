@@ -49,7 +49,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                 onClick={() => handle(false)}
                 className="px-4 py-2 rounded-xl text-sm font-medium text-bluegray-600 border border-bluegray-200 hover:bg-bluegray-50 cursor-pointer transition-colors"
               >
-                {state.cancelLabel ?? t("common.cancel")}
+                {state.cancelLabel ?? t("common.no")}
               </button>
               <button
                 onClick={() => handle(true)}
@@ -59,7 +59,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                     : "bg-cyan-500 hover:bg-cyan-600"
                 }`}
               >
-                {state.confirmLabel ?? t("common.confirm")}
+                {state.confirmLabel ?? t("common.yes")}
               </button>
             </div>
           </div>

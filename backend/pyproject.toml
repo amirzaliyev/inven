@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "aiogram>=3.27.0",
     "alembic~=1.18.4",
     "asyncpg~=0.31.0",
     "fastapi[standard]~=0.135.2",
@@ -25,6 +26,11 @@ ignore = ["F841"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+
+[tool.uv.workspace]
+members = [
+    "bot",
+]
 
 [dependency-groups]
 dev = [

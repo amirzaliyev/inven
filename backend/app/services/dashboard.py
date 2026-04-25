@@ -16,7 +16,7 @@ from app.models.inventory_transactions import (
     InventoryTransaction,
     InventoryTransactionLine,
 )
-from app.models.orders import Order
+from app.models.orders import Order, OrderItem
 from app.models.payroll import Payroll
 from app.models.products import Product
 from app.models.subdivisions import SubDivision
@@ -26,6 +26,7 @@ from app.schemas.dashboard import (
     PayrollStats,
     ProductStock,
     TodayProduction,
+    TodaySale,
     WorkforceStats,
 )
 
@@ -38,6 +39,7 @@ class DashboardService:
         return DashboardResponse(
             stock_levels=await self._stock_levels(),
             today_production=await self._today_production(),
+            today_sales=await self._today_sales(),
             order_stats=await self._order_stats(),
             revenue_this_month=await self._revenue_this_month(),
             payroll_stats=await self._payroll_stats(),
@@ -114,6 +116,36 @@ class DashboardService:
                 product_name=r.name,
                 total_quantity=r.total_quantity,
                 batch_count=r.batch_count,
+            )
+            for r in rows
+        ]
+
+    async def _today_sales(self) -> list[TodaySale]:
+        today = date.today()
+        stmt = (
+            select(
+                Product.id,
+                Product.name,
+                func.sum(OrderItem.quantity).label("total_quantity"),
+                func.count(func.distinct(Order.id)).label("order_count"),
+            )
+            .join(OrderItem, OrderItem.product_id == Product.id)
+            .join(Order, OrderItem.order_id == Order.id)
+            .where(
+                Order.is_active == True,  # noqa: E712
+                Order.status == OrderStatus.COMPLETED,
+                Order.order_date == today,
+            )
+            .group_by(Product.id, Product.name)
+            .order_by(Product.name)
+        )
+        rows = (await self._session.execute(stmt)).all()
+        return [
+            TodaySale(
+                product_id=r.id,
+                product_name=r.name,
+                total_quantity=r.total_quantity,
+                order_count=r.order_count,
             )
             for r in rows
         ]

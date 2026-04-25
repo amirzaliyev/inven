@@ -5,6 +5,7 @@ Every test runs inside a DB transaction that rolls back at the end,
 so tests are fully isolated without needing to recreate tables each time.
 """
 
+from collections.abc import AsyncGenerator
 from datetime import date
 from decimal import Decimal
 
@@ -391,7 +392,7 @@ async def employee_user(factory: Factory) -> User:
 
 
 @pytest.fixture
-async def client(app) -> AsyncClient:
+async def client(app) -> AsyncGenerator[AsyncClient, None]:
     """Unauthenticated async HTTP client."""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
@@ -399,7 +400,7 @@ async def client(app) -> AsyncClient:
 
 
 @pytest.fixture
-async def admin_client(app, admin_user: User) -> AsyncClient:
+async def admin_client(app, admin_user: User) -> AsyncGenerator[AsyncClient, None]:
     """HTTP client authenticated as admin."""
     transport = ASGITransport(app=app)
     headers = auth_header(admin_user)
@@ -410,7 +411,9 @@ async def admin_client(app, admin_user: User) -> AsyncClient:
 
 
 @pytest.fixture
-async def employee_client(app, employee_user: User) -> AsyncClient:
+async def employee_client(
+    app, employee_user: User
+) -> AsyncGenerator[AsyncClient, None]:
     """HTTP client authenticated as employee (limited permissions)."""
     transport = ASGITransport(app=app)
     headers = auth_header(employee_user)

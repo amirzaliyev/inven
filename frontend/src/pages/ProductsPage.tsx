@@ -7,6 +7,7 @@ import { useConfirm } from "../contexts/ConfirmContext";
 import { useAuth } from "../contexts/AuthContext";
 import { Modal } from "../components/Modal";
 import { DateInput } from "../components/DateInput";
+import { PageHead, Button, Searchbar, ListCard, ListRow, EmptyState } from "../components/ui";
 
 interface EditState {
   name: string;
@@ -28,7 +29,7 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
+  const [, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -52,6 +53,15 @@ export default function ProductsPage() {
   const [rateSubmitting, setRateSubmitting] = useState(false);
   const [rateErrors, setRateErrors] = useState<Record<string, string>>({});
   const [rateDeletingId, setRateDeletingId] = useState<number | null>(null);
+
+  // Debounced search: as user types, push to `search` (which fires fetch)
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(id);
+  }, [searchInput]);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -215,169 +225,186 @@ export default function ProductsPage() {
     }
   }
 
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    setPage(1);
-    setSearch(searchInput);
-  }
-
-  const inputCls = "px-3 py-2 border border-bluegray-200 rounded-xl text-sm outline-none focus:border-cyan-400 focus:shadow-sm bg-white disabled:opacity-60 w-full";
+  const boxIcon = (
+    <div className="w-9 h-9 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center">
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+      </svg>
+    </div>
+  );
 
   return (
-    <div className="max-w-3xl mx-auto w-full">
-      <h1 className="text-2xl font-bold text-bluegray-800 mb-1 tracking-tight">{t("products.title")}</h1>
-      <p className="text-sm text-bluegray-400 mb-6">{t("products.subtitle")}</p>
+    <div className="max-w-5xl mx-auto w-full">
+      <PageHead
+        title={t("products.title")}
+        subtitle={t("products.subtitle")}
+        actions={canWriteProducts && <Button onClick={() => setShowCreateModal(true)}>{t("products.addNew")}</Button>}
+      />
 
-      {/* Product list */}
-      <div className="bg-white rounded-2xl shadow overflow-hidden">
-        <div className="flex justify-between items-center px-5 py-4 border-b border-bluegray-100">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-bluegray-700">{t("products.listTitle")}</span>
-            <span className="bg-cyan-50 text-cyan-700 text-xs font-semibold px-2 py-0.5 rounded-full">{total}</span>
-          </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl text-xs font-semibold cursor-pointer transition-colors"
-          >
-            + {t("products.addNew")}
-          </button>
-        </div>
-
-        {/* Search */}
-        <div className="px-5 pt-3 pb-3">
-          <form onSubmit={handleSearch} className="flex gap-2 items-center">
-            <input
-              type="text"
-              placeholder={t("products.searchPlaceholder")}
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              className="flex-1 px-3 py-2 border border-bluegray-200 rounded-xl text-sm outline-none focus:border-cyan-400 focus:shadow-sm bg-white"
-            />
-            <button type="submit" className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl text-sm font-semibold cursor-pointer transition-colors">
-              {t("common.search")}
-            </button>
-            {search && (
-              <button
-                type="button"
-                className="px-3 py-2 text-bluegray-500 border border-bluegray-200 rounded-xl text-sm font-medium hover:bg-bluegray-50 cursor-pointer"
-                onClick={() => { setSearchInput(""); setSearch(""); setPage(1); }}
-              >
-                {t("common.clear")}
-              </button>
-            )}
-          </form>
-        </div>
-
-        {loading ? (
-          <div className="px-5 py-10 text-center text-sm text-bluegray-400">{t("common.loading")}</div>
-        ) : products.length === 0 ? (
-          <div className="px-5 py-10 text-center text-sm text-bluegray-400">
-            {search ? t("products.emptySearch") : t("products.emptyList")}
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto"><table className="w-full border-collapse">
-              <thead>
-                <tr>
-                  <th className="hidden sm:table-cell bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("common.id")}</th>
-                  <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("common.name")}</th>
-                  <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left">{t("products.skuHeader")}</th>
-                  <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase tracking-wider px-5 py-3 text-left w-36">{t("common.actions")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.map((product) => (
-                  <tr key={product.id} className="hover:bg-bluegray-50">
-                    <td className="hidden sm:table-cell px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
-                      <span className="text-bluegray-400 font-mono text-xs">#{product.id}</span>
-                    </td>
-                    <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">{product.name}</td>
-                    <td className="px-5 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
-                      <span className="font-mono bg-bluegray-50 px-2 py-0.5 rounded text-xs">{product.sku_code}</span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-bluegray-700 border-b border-bluegray-100">
-                      <div className="flex gap-1.5 items-center">
-                        {canWriteProducts && (
-                          <button onClick={() => openRates(product)} title={t("commissionRates.title")}
-                            className="p-1.5 text-purple-600 border border-purple-200 rounded-lg hover:bg-purple-50 cursor-pointer">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                            </svg>
-                          </button>
-                        )}
-                        {/* Mobile: icon only */}
-                        <button onClick={() => startEdit(product)} disabled={deletingId !== null}
-                          className="p-1.5 text-cyan-600 border border-cyan-200 rounded-lg hover:bg-cyan-50 cursor-pointer disabled:opacity-40 sm:hidden">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                        <button onClick={() => handleDelete(product)} disabled={deletingId !== null}
-                          className="p-1.5 text-red-500 border border-red-200 rounded-lg hover:bg-red-50 cursor-pointer disabled:opacity-40 sm:hidden">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                        {/* Desktop: text buttons */}
-                        <button onClick={() => startEdit(product)} disabled={deletingId !== null}
-                          className="hidden sm:block px-3 py-1 text-cyan-600 border border-cyan-200 rounded-lg text-sm font-medium hover:bg-cyan-50 cursor-pointer disabled:opacity-40">
-                          {t("common.edit")}
-                        </button>
-                        <button onClick={() => handleDelete(product)} disabled={deletingId !== null}
-                          className="hidden sm:block px-3 py-1 text-red-500 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-50 cursor-pointer disabled:opacity-40">
-                          {deletingId === product.id ? t("products.deleting") : t("common.delete")}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table></div>
-
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-bluegray-100 text-sm text-bluegray-500">
-                <button
-                  className={`px-3 py-1.5 border rounded-lg text-sm cursor-pointer ${page <= 1 ? "bg-bluegray-50 text-bluegray-300 border-bluegray-100 cursor-not-allowed" : "bg-white text-bluegray-700 border-bluegray-200 hover:bg-bluegray-50"}`}
-                  onClick={() => setPage((p) => p - 1)} disabled={page <= 1}
-                >
-                  <span className="sm:hidden">←</span>
-                  <span className="hidden sm:inline">← {t("common.previous")}</span>
-                </button>
-                <span className="text-xs">{t("common.pageOf", { page, total: totalPages })}</span>
-                <button
-                  className={`px-3 py-1.5 border rounded-lg text-sm cursor-pointer ${page >= totalPages ? "bg-bluegray-50 text-bluegray-300 border-bluegray-100 cursor-not-allowed" : "bg-white text-bluegray-700 border-bluegray-200 hover:bg-bluegray-50"}`}
-                  onClick={() => setPage((p) => p + 1)} disabled={page >= totalPages}
-                >
-                  <span className="sm:hidden">→</span>
-                  <span className="hidden sm:inline">{t("common.next")} →</span>
-                </button>
-              </div>
-            )}
-          </>
-        )}
+      <div className="mb-4">
+        <Searchbar value={searchInput} onChange={setSearchInput} placeholder={t("products.searchPlaceholder")} />
       </div>
+
+      {loading ? (
+        <ListCard>
+          <div className="px-5 py-10 text-center text-sm text-bluegray-400">{t("common.loading")}</div>
+        </ListCard>
+      ) : products.length === 0 ? (
+        <ListCard>
+          <EmptyState
+            title={t("products.emptyList")}
+            description={searchInput ? t("products.emptySearch") : undefined}
+            action={searchInput ? (
+              <Button variant="outline" size="sm" onClick={() => setSearchInput("")}>{t("common.clear")}</Button>
+            ) : undefined}
+          />
+        </ListCard>
+      ) : (
+        <>
+          {/* Mobile list */}
+          <div className="md:hidden">
+            <ListCard>
+              {products.map((product) => (
+                <ListRow
+                  key={product.id}
+                  avatar={boxIcon}
+                  title={product.name}
+                  subtitle={<span className="font-mono text-[12px] text-bluegray-700">{product.sku_code}</span>}
+                  onClick={canWriteProducts ? () => startEdit(product) : undefined}
+                  trailing={canWriteProducts ? (
+                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openRates(product); }}>
+                        {t("commissionRates.title")}
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleDelete(product); }} disabled={deletingId !== null}>
+                        {deletingId === product.id ? t("products.deleting") : t("common.delete")}
+                      </Button>
+                    </div>
+                  ) : undefined}
+                />
+              ))}
+            </ListCard>
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block">
+            <ListCard className="overflow-hidden">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>{t("common.name")}</th>
+                    <th>{t("products.skuHeader")}</th>
+                    <th>{t("commissionRates.title")}</th>
+                    <th className="text-right">{t("common.actions")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {products.map((product) => (
+                    <tr key={product.id}>
+                      <td>{product.name}</td>
+                      <td><span className="font-mono text-[12px] text-bluegray-700">{product.sku_code}</span></td>
+                      <td className="text-bluegray-500 text-sm">—</td>
+                      <td className="text-right">
+                        <div className="inline-flex items-center gap-1 justify-end">
+                          {canWriteProducts && (
+                            <button
+                              type="button"
+                              title={t("common.edit")}
+                              onClick={() => startEdit(product)}
+                              disabled={deletingId !== null}
+                              className="icon-btn"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                          )}
+                          {canWriteProducts && (
+                            <button
+                              type="button"
+                              title={t("commissionRates.title")}
+                              onClick={() => openRates(product)}
+                              className="icon-btn"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </button>
+                          )}
+                          {canWriteProducts && (
+                            <button
+                              type="button"
+                              title={deletingId === product.id ? t("products.deleting") : t("common.delete")}
+                              onClick={() => handleDelete(product)}
+                              disabled={deletingId !== null}
+                              className="icon-btn icon-btn-danger"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </ListCard>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between gap-2 mt-4">
+              <span className="text-sm text-bluegray-500">{t("common.pageOf", { page, total: totalPages })}</span>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => p - 1)} disabled={page <= 1}>
+                  {t("common.previous")}
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)} disabled={page >= totalPages}>
+                  {t("common.next")}
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       {/* Create modal */}
       <Modal open={showCreateModal} onClose={() => { setShowCreateModal(false); setName(""); setSkuCode(""); setCreateErrors({}); }} title={t("products.addNew")}>
-        <form onSubmit={async (e) => { await handleCreate(e); if (!submitting) setShowCreateModal(false); }} noValidate className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("products.nameLabel")} <span className="text-red-400">*</span></label>
-            <input type="text" placeholder={t("products.namePlaceholder")} value={name} onChange={(e) => { setName(e.target.value); setCreateErrors(prev => { const { name: _, ...rest } = prev; return rest; }); }} disabled={submitting} className={`${inputCls} ${createErrors.name ? "!border-red-400" : ""}`} autoFocus />
-            <p className="text-xs text-red-600 min-h-4">{createErrors.name ?? "\u00A0"}</p>
+        <form onSubmit={handleCreate} noValidate className="flex flex-col gap-4">
+          <div className="field">
+            <label className="field-label">{t("products.nameLabel")} <span className="text-red-400">*</span></label>
+            <input
+              type="text"
+              placeholder={t("products.namePlaceholder")}
+              value={name}
+              onChange={(e) => { setName(e.target.value); setCreateErrors(prev => { const { name: _, ...rest } = prev; return rest; }); }}
+              disabled={submitting}
+              className="input"
+              autoFocus
+            />
+            {createErrors.name && <p className="field-error">{createErrors.name}</p>}
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("products.skuLabel")} <span className="text-red-400">*</span></label>
-            <input type="text" placeholder={t("products.skuPlaceholder")} value={skuCode} onChange={(e) => { setSkuCode(e.target.value); setCreateErrors(prev => { const { sku_code: _, ...rest } = prev; return rest; }); }} disabled={submitting} className={`${inputCls} ${createErrors.sku_code ? "!border-red-400" : ""}`} />
-            <p className="text-xs text-red-600 min-h-4">{createErrors.sku_code ?? "\u00A0"}</p>
+          <div className="field">
+            <label className="field-label">{t("products.skuLabel")} <span className="text-red-400">*</span></label>
+            <input
+              type="text"
+              placeholder={t("products.skuPlaceholder")}
+              value={skuCode}
+              onChange={(e) => { setSkuCode(e.target.value); setCreateErrors(prev => { const { sku_code: _, ...rest } = prev; return rest; }); }}
+              disabled={submitting}
+              className="input"
+            />
+            {createErrors.sku_code && <p className="field-error">{createErrors.sku_code}</p>}
           </div>
-          {createErrors.api && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{createErrors.api}</p>}
+          {createErrors.api && <p className="field-error">{createErrors.api}</p>}
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={() => { setShowCreateModal(false); setName(""); setSkuCode(""); setCreateErrors({}); }} className="px-4 py-2 rounded-xl text-sm font-medium text-bluegray-600 border border-bluegray-200 hover:bg-bluegray-50 cursor-pointer">
+            <Button type="button" variant="outline" onClick={() => { setShowCreateModal(false); setName(""); setSkuCode(""); setCreateErrors({}); }}>
               {t("common.cancel")}
-            </button>
-            <button type="submit" disabled={submitting} className={`px-5 py-2 rounded-xl text-sm font-semibold text-white ${submitting ? "bg-cyan-300 cursor-not-allowed" : "bg-cyan-500 hover:bg-cyan-600 cursor-pointer transition-colors"}`}>
-              {submitting ? t("products.creating") : t("products.create")}
-            </button>
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? t("common.saving") : t("common.save")}
+            </Button>
           </div>
         </form>
       </Modal>
@@ -385,28 +412,44 @@ export default function ProductsPage() {
       {/* Edit modal */}
       <Modal open={editingId !== null} onClose={cancelEdit} title={t("common.edit")}>
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("products.nameLabel")}</label>
-            <input type="text" value={editState.name} onChange={(e) => setEditState((s) => ({ ...s, name: e.target.value }))} disabled={editSubmitting} autoFocus className={inputCls} />
+          <div className="field">
+            <label className="field-label">{t("products.nameLabel")}</label>
+            <input
+              type="text"
+              value={editState.name}
+              onChange={(e) => setEditState((s) => ({ ...s, name: e.target.value }))}
+              disabled={editSubmitting}
+              autoFocus
+              className="input"
+            />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-bluegray-600">{t("products.skuLabel")}</label>
-            <input type="text" value={editState.sku_code} onChange={(e) => setEditState((s) => ({ ...s, sku_code: e.target.value }))} disabled={editSubmitting} className={inputCls} />
+          <div className="field">
+            <label className="field-label">{t("products.skuLabel")}</label>
+            <input
+              type="text"
+              value={editState.sku_code}
+              onChange={(e) => setEditState((s) => ({ ...s, sku_code: e.target.value }))}
+              disabled={editSubmitting}
+              className="input"
+            />
           </div>
-          {editError && <p className="text-xs text-red-600">{editError}</p>}
+          {editError && <p className="field-error">{editError}</p>}
           <div className="flex justify-end gap-2 pt-2">
-            <button onClick={cancelEdit} className="px-4 py-2 rounded-xl text-sm font-medium text-bluegray-600 border border-bluegray-200 hover:bg-bluegray-50 cursor-pointer">
-              {t("common.cancel")}
-            </button>
-            <button onClick={() => editingId !== null && handleUpdate(editingId)} disabled={editSubmitting} className={`px-5 py-2 rounded-xl text-sm font-semibold text-white ${editSubmitting ? "bg-cyan-300 cursor-not-allowed" : "bg-cyan-500 hover:bg-cyan-600 cursor-pointer transition-colors"}`}>
+            <Button variant="outline" onClick={cancelEdit}>{t("common.cancel")}</Button>
+            <Button onClick={() => editingId !== null && handleUpdate(editingId)} disabled={editSubmitting}>
               {editSubmitting ? t("common.saving") : t("common.save")}
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>
 
       {/* Commission rates modal */}
-      <Modal open={ratesProduct !== null} onClose={() => { setRatesProduct(null); setNewRate(""); setNewRateFrom(""); setNewRateTo(""); setRateErrors({}); }} title={ratesProduct ? t("commissionRates.ratesFor", { name: ratesProduct.name }) : ""} size="lg">
+      <Modal
+        open={ratesProduct !== null}
+        onClose={() => { setRatesProduct(null); setNewRate(""); setNewRateFrom(""); setNewRateTo(""); setRateErrors({}); }}
+        title={ratesProduct ? t("commissionRates.ratesFor", { name: ratesProduct.name }) : ""}
+        size="2xl"
+      >
         {ratesLoading ? (
           <div className="py-6 text-center text-sm text-bluegray-400">{t("common.loading")}</div>
         ) : (
@@ -414,30 +457,27 @@ export default function ProductsPage() {
             {rates.length === 0 ? (
               <div className="py-4 text-center text-sm text-bluegray-400">{t("commissionRates.emptyList")}</div>
             ) : (
-              <div className="border border-bluegray-200 rounded-xl overflow-hidden overflow-x-auto">
-                <table className="w-full border-collapse text-sm">
+              <div className="overflow-x-auto">
+                <table className="data-table">
                   <thead>
                     <tr>
-                      <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase px-4 py-2 text-left">{t("commissionRates.effectiveFrom")}</th>
-                      <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase px-4 py-2 text-left">{t("commissionRates.effectiveTo")}</th>
-                      <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase px-4 py-2 text-right">{t("commissionRates.ratePerUnit")}</th>
-                      {canWriteProducts && <th className="bg-bluegray-50 text-xs font-semibold text-bluegray-500 uppercase px-4 py-2 w-12"></th>}
+                      <th>{t("commissionRates.effectiveFrom")}</th>
+                      <th>{t("commissionRates.effectiveTo")}</th>
+                      <th className="text-right">{t("commissionRates.ratePerUnit")}</th>
+                      {canWriteProducts && <th></th>}
                     </tr>
                   </thead>
                   <tbody>
                     {rates.map(r => (
-                      <tr key={r.id} className="hover:bg-bluegray-50">
-                        <td className="px-4 py-2 text-bluegray-700 border-b border-bluegray-100">{r.effective_from}</td>
-                        <td className="px-4 py-2 text-bluegray-700 border-b border-bluegray-100">{r.effective_to ?? t("commissionRates.open")}</td>
-                        <td className="px-4 py-2 text-bluegray-700 border-b border-bluegray-100 text-right tabular-nums">{r.rate_per_unit}</td>
+                      <tr key={r.id}>
+                        <td>{r.effective_from}</td>
+                        <td>{r.effective_to ?? t("commissionRates.open")}</td>
+                        <td className="text-right tabular-nums">{r.rate_per_unit}</td>
                         {canWriteProducts && (
-                          <td className="px-4 py-2 border-b border-bluegray-100">
-                            <button onClick={() => handleDeleteRate(r.id)} disabled={rateDeletingId === r.id}
-                              className="p-1 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer disabled:opacity-40">
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
+                          <td className="text-right">
+                            <Button variant="ghost" size="sm" onClick={() => handleDeleteRate(r.id)} disabled={rateDeletingId === r.id}>
+                              {t("common.delete")}
+                            </Button>
                           </td>
                         )}
                       </tr>
@@ -447,29 +487,40 @@ export default function ProductsPage() {
               </div>
             )}
             {canWriteProducts && (
-              <form onSubmit={handleAddRate} className="flex flex-col gap-3 pt-2 border-t border-bluegray-100">
+              <form onSubmit={handleAddRate} className="flex flex-col gap-3 pt-3 border-t border-bluegray-100">
                 <h4 className="text-xs font-semibold text-bluegray-500 uppercase tracking-wider">{t("commissionRates.addRate")}</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs text-bluegray-500">{t("commissionRates.ratePerUnit")} <span className="text-red-400">*</span></label>
-                    <input type="number" step="0.0001" value={newRate} onChange={e => { setNewRate(e.target.value); setRateErrors(prev => { const { rate: _, ...rest } = prev; return rest; }); }} className={`${inputCls} w-full ${rateErrors.rate ? "!border-red-400" : ""}`} disabled={rateSubmitting} />
-                    <p className="text-xs text-red-600 min-h-4">{rateErrors.rate ?? "\u00A0"}</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="field">
+                    <label className="field-label">{t("commissionRates.ratePerUnit")} <span className="text-red-400">*</span></label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      value={newRate}
+                      onChange={e => { setNewRate(e.target.value); setRateErrors(prev => { const { rate: _, ...rest } = prev; return rest; }); }}
+                      className="input"
+                      disabled={rateSubmitting}
+                    />
+                    {rateErrors.rate && <p className="field-error">{rateErrors.rate}</p>}
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs text-bluegray-500">{t("commissionRates.effectiveFrom")} <span className="text-red-400">*</span></label>
-                    <DateInput value={newRateFrom} onChange={(v: string) => { setNewRateFrom(v); setRateErrors(prev => { const { effective_from: _, ...rest } = prev; return rest; }); }} className={`${inputCls} w-full ${rateErrors.effective_from ? "!border-red-400" : ""}`} />
-                    <p className="text-xs text-red-600 min-h-4">{rateErrors.effective_from ?? "\u00A0"}</p>
+                  <div className="field">
+                    <label className="field-label">{t("commissionRates.effectiveFrom")} <span className="text-red-400">*</span></label>
+                    <DateInput
+                      value={newRateFrom}
+                      onChange={(v: string) => { setNewRateFrom(v); setRateErrors(prev => { const { effective_from: _, ...rest } = prev; return rest; }); }}
+                      className="input"
+                    />
+                    {rateErrors.effective_from && <p className="field-error">{rateErrors.effective_from}</p>}
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs text-bluegray-500">{t("commissionRates.effectiveTo")}</label>
-                    <DateInput value={newRateTo} onChange={setNewRateTo} className={`${inputCls} w-full`} />
+                  <div className="field">
+                    <label className="field-label">{t("commissionRates.effectiveTo")}</label>
+                    <DateInput value={newRateTo} onChange={setNewRateTo} className="input" />
                   </div>
                 </div>
-                {rateErrors.api && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{rateErrors.api}</p>}
+                {rateErrors.api && <p className="field-error">{rateErrors.api}</p>}
                 <div className="flex justify-end">
-                  <button type="submit" disabled={rateSubmitting} className={`px-4 py-2 rounded-xl text-sm font-semibold text-white ${rateSubmitting ? "bg-cyan-300 cursor-not-allowed" : "bg-cyan-500 hover:bg-cyan-600 cursor-pointer transition-colors"}`}>
-                    {rateSubmitting ? t("commissionRates.creating") : t("commissionRates.create")}
-                  </button>
+                  <Button type="submit" disabled={rateSubmitting}>
+                    {rateSubmitting ? t("common.saving") : t("common.save")}
+                  </Button>
                 </div>
               </form>
             )}

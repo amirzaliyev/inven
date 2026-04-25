@@ -5,8 +5,15 @@ interface Props {
   onClose: () => void;
   title: string;
   children: ReactNode;
-  size?: "md" | "lg";
+  size?: "md" | "lg" | "xl" | "2xl";
 }
+
+const SIZE_CLASS: Record<NonNullable<Props["size"]>, string> = {
+  md: "max-w-md",
+  lg: "max-w-lg",
+  xl: "max-w-2xl",
+  "2xl": "max-w-4xl",
+};
 
 export function Modal({ open, onClose, title, children, size = "md" }: Props) {
   useEffect(() => {
@@ -20,7 +27,7 @@ export function Modal({ open, onClose, title, children, size = "md" }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-16 sm:items-center sm:pt-4">
       <div className="absolute inset-0 bg-bluegray-900/30 backdrop-blur-[2px]" onClick={onClose} />
-      <div className={`relative bg-white rounded-3xl shadow-2xl w-full ${size === "lg" ? "max-w-lg" : "max-w-md"}`}>
+      <div className={`relative bg-white rounded-3xl shadow-2xl w-full ${SIZE_CLASS[size]}`}>
         <div className="flex items-center justify-between px-7 pt-6 pb-4 border-b border-bluegray-100">
           <h2 className="text-base font-bold text-bluegray-800">{title}</h2>
           <button
