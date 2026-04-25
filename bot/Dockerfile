@@ -6,5 +6,10 @@ WORKDIR /app
 COPY pyproject.toml uv.lock* ./
 RUN uv sync --frozen --no-dev
 
+
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+
+USER appuser
+
 COPY . .
 CMD ["uv", "run", "python", "-m", "main"]

@@ -1,20 +1,23 @@
 # Stage 1: Build dependencies
 FROM python:3.13-slim AS builder
 
-WORKDIR /app
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
-
-# Stage 2: Runtime
-FROM python:3.13-slim AS runner
+RUN apt-get update \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-COPY --from=builder /install /usr/local
+COPY pyproject.toml uv.lock* ./
+
+RUN uv sync --frozen --no-dev
 
 COPY . .
 
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+
+USER appuser
+
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
