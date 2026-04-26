@@ -161,7 +161,7 @@ export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
 
 export interface OrderItem {
   id: number;
-  product_id: number;
+  product: { id: number; name: string; sku_code: string };
   quantity: number;
   price: string;
 }
@@ -229,6 +229,30 @@ export interface DashboardData {
   revenue_this_month: number;
   payroll_stats: { draft: number; approved: number; paid: number };
   workforce: { salary_employees: number; commission_employees: number; subdivision_count: number };
+}
+
+export type TimeseriesRange = 7 | 30 | 90;
+export interface SalesSeries {
+  product_id: number;
+  product_name: string;
+  sku_code: string;
+  quantity: number[];
+  revenue: string[];
+}
+export interface ProductionSeries {
+  product_id: number;
+  product_name: string;
+  sku_code: string;
+  quantity: number[];
+}
+export interface DashboardTimeseries {
+  range_days: TimeseriesRange;
+  start_date: string;
+  end_date: string;
+  currency: string;
+  dates: string[];
+  sales: SalesSeries[];
+  production: ProductionSeries[];
 }
 
 // Errors

@@ -186,7 +186,7 @@ class TestOrderServiceUpdate:
             ),
             user=ctx,
         )
-        await svc.cancel_order(order.id)
+        await svc.cancel_order(order.id, user=ctx)
 
         with pytest.raises(Conflict) as exc_info:
             await svc.update(
@@ -335,7 +335,7 @@ class TestOrderServiceReset:
             ),
             user=ctx,
         )
-        await svc.cancel_order(order.id)
+        await svc.cancel_order(order.id, user=ctx)
 
         reset = await svc.reset_order(order.id, ctx)
         assert reset.status == OrderStatus.DRAFT
@@ -400,7 +400,7 @@ class TestOrderServiceCancel:
             user=ctx,
         )
 
-        cancelled = await svc.cancel_order(order.id)
+        cancelled = await svc.cancel_order(order.id, user=ctx)
         assert cancelled.status == OrderStatus.CANCELLED
 
     async def test_cancel_completed_order_raises_conflict(
@@ -427,7 +427,7 @@ class TestOrderServiceCancel:
         await svc.complete_order(order.id, ctx)
 
         with pytest.raises(Conflict) as exc_info:
-            await svc.cancel_order(order.id)
+            await svc.cancel_order(order.id, user=ctx)
         assert exc_info.value.code == "order_not_cancellable"
 
     async def test_cancel_cancelled_order_raises_conflict(
@@ -451,10 +451,10 @@ class TestOrderServiceCancel:
             ),
             user=ctx,
         )
-        await svc.cancel_order(order.id)
+        await svc.cancel_order(order.id, user=ctx)
 
         with pytest.raises(Conflict) as exc_info:
-            await svc.cancel_order(order.id)
+            await svc.cancel_order(order.id, user=ctx)
         assert exc_info.value.code == "order_not_cancellable"
 
 

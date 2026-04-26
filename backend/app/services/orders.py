@@ -14,7 +14,7 @@ from app.schemas.inventory_transactions import (
     ITransactionLineCreate,
 )
 from app.schemas.orders import OrderCreate, OrderUpdate
-from app.services.exceptions import Conflict
+from app.services.exceptions import Conflict, ResourceNotFound
 
 from .base import BaseModelService
 from .inventory_transactions import InventoryTransactionService
@@ -28,6 +28,25 @@ class OrderService(BaseModelService[Order]):
     ):
         super().__init__(session=session, auto_commit=False)
         self._inv_transactions = inventory_transactions
+
+    async def get_order_with_details(self, order_id: int, user: UserContext) -> Order:
+        stmt = (
+            select(self.model)
+            .options(
+                selectinload(self.model.items).selectinload(OrderItem.product),
+                selectinload(self.model.customer),
+            )
+            .where(self.model.id == order_id)
+        )
+
+        order = (await self._session.scalars(stmt)).one_or_none()
+
+        if not order:
+            raise ResourceNotFound(
+                code="order_not_found", message=f"Order not found with id {order_id}"
+            )
+
+        return order
 
     async def create(self, data: OrderCreate, user: UserContext) -> Order:
         total_amount = sum(item.price * item.quantity for item in data.items)
@@ -47,8 +66,7 @@ class OrderService(BaseModelService[Order]):
 
         await self._session.commit()
 
-        await self._session.refresh(new_order, ["items"])
-        return new_order
+        return await self.get_order_with_details(order_id=new_order.id, user=user)
 
     async def update(
         self, order_id: int, data: OrderUpdate, user: UserContext
@@ -78,8 +96,7 @@ class OrderService(BaseModelService[Order]):
             order.total_amount = sum(d.price * d.quantity for d in data.items)
 
         await self._session.commit()
-        await self._session.refresh(order, ["items"])
-        return order
+        return await self.get_order_with_details(order_id=order.id, user=user)
 
     async def list(
         self,
@@ -111,7 +128,7 @@ class OrderService(BaseModelService[Order]):
         stmt = (
             select(self.model)
             .where(*conditions)
-            .options(selectinload(self.model.items))
+            .options(selectinload(self.model.items).selectinload(OrderItem.product))
             .offset((page - 1) * size)
             .limit(size)
             .order_by(self.model.order_date.desc())
@@ -154,8 +171,7 @@ class OrderService(BaseModelService[Order]):
         )
 
         await self._session.commit()
-        await self._session.refresh(order, ["items"])
-        return order
+        return await self.get_order_with_details(order_id=order.id, user=user)
 
     async def reset_order(self, order_id: int, user: UserContext) -> Order:
         order = await self.get(id=order_id)
@@ -164,6 +180,12 @@ class OrderService(BaseModelService[Order]):
             raise Conflict(
                 code="order_already_draft",
                 message="Order is already in DRAFT status.",
+            )
+
+        if order.status == OrderStatus.CANCELLED:
+            raise Conflict(
+                code="order_cancelled",
+                message="Cancelled orders cannot be set to DRAFT",
             )
 
         was_completed = order.status == OrderStatus.COMPLETED
@@ -189,10 +211,9 @@ class OrderService(BaseModelService[Order]):
             )
 
         await self._session.commit()
-        await self._session.refresh(order, ["items"])
-        return order
+        return await self.get_order_with_details(order_id=order.id, user=user)
 
-    async def cancel_order(self, order_id: int) -> Order:
+    async def cancel_order(self, order_id: int, user: UserContext) -> Order:
         order = await self.get(id=order_id)
 
         if order.status != OrderStatus.DRAFT:
@@ -203,5 +224,4 @@ class OrderService(BaseModelService[Order]):
 
         order.status = OrderStatus.CANCELLED
         await self._session.commit()
-        await self._session.refresh(order, ["items"])
-        return order
+        return await self.get_order_with_details(order_id=order.id, user=user)

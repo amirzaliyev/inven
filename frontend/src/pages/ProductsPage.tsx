@@ -273,10 +273,10 @@ export default function ProductsPage() {
                   onClick={canWriteProducts ? () => startEdit(product) : undefined}
                   trailing={canWriteProducts ? (
                     <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openRates(product); }}>
+                      <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); openRates(product); }}>
                         {t("commissionRates.title")}
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleDelete(product); }} disabled={deletingId !== null}>
+                      <Button variant="danger" size="sm" onClick={(e) => { e.stopPropagation(); handleDelete(product); }} disabled={deletingId !== null}>
                         {deletingId === product.id ? t("products.deleting") : t("common.delete")}
                       </Button>
                     </div>
@@ -294,7 +294,6 @@ export default function ProductsPage() {
                   <tr>
                     <th>{t("common.name")}</th>
                     <th>{t("products.skuHeader")}</th>
-                    <th>{t("commissionRates.title")}</th>
                     <th className="text-right">{t("common.actions")}</th>
                   </tr>
                 </thead>
@@ -303,7 +302,6 @@ export default function ProductsPage() {
                     <tr key={product.id}>
                       <td>{product.name}</td>
                       <td><span className="font-mono text-[12px] text-bluegray-700">{product.sku_code}</span></td>
-                      <td className="text-bluegray-500 text-sm">—</td>
                       <td className="text-right">
                         <div className="inline-flex items-center gap-1 justify-end">
                           {canWriteProducts && (
@@ -475,7 +473,7 @@ export default function ProductsPage() {
                         <td className="text-right tabular-nums">{r.rate_per_unit}</td>
                         {canWriteProducts && (
                           <td className="text-right">
-                            <Button variant="ghost" size="sm" onClick={() => handleDeleteRate(r.id)} disabled={rateDeletingId === r.id}>
+                            <Button variant="danger" size="sm" onClick={() => handleDeleteRate(r.id)} disabled={rateDeletingId === r.id}>
                               {t("common.delete")}
                             </Button>
                           </td>

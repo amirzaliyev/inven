@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     CheckConstraint,
@@ -16,6 +17,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.enums import OrderStatus
 
 from .base import BaseModel
+
+if TYPE_CHECKING:
+    from .customers import Customer
+    from .products import Product
 
 
 class Order(BaseModel):
@@ -46,9 +51,6 @@ class Order(BaseModel):
     items: Mapped[list["OrderItem"]] = relationship("OrderItem", back_populates="order")
 
 
-from .customers import Customer  # noqa: E402
-
-
 class OrderItem(BaseModel):
     __tablename__ = "order_items"
     __table_args__ = (
@@ -66,3 +68,4 @@ class OrderItem(BaseModel):
     )
 
     order: Mapped["Order"] = relationship("Order", back_populates="items")
+    product: Mapped["Product"] = relationship("Product", foreign_keys=[product_id])

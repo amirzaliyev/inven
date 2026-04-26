@@ -14,7 +14,9 @@ import {
   ListRow,
   EmptyState,
   StatusPill,
+  BottomSheet,
   fmtMoney,
+  fmtNum,
   type StatusVariant,
 } from "../components/ui";
 import {
@@ -32,6 +34,7 @@ import { OrderStatus as OS } from "../types";
 
 interface FormItem {
   product_id: number | "";
+  product_label?: string;
   quantity: number | "";
   price: number | "";
 }
@@ -99,6 +102,7 @@ export default function OrdersPage() {
 
   const [actionId, setActionId] = useState<number | null>(null);
   const [actionType, setActionType] = useState<string>("");
+  const [sheetOrder, setSheetOrder] = useState<Order | null>(null);
 
   const fetchCustomerOptions = useCallback(
     (q: string) => listCustomers(1, 50, q || undefined).then((r) => r.items.map((c) => ({ value: c.id, label: c.full_name }))),
@@ -198,7 +202,8 @@ export default function OrdersPage() {
       order_date: order.order_date,
       customer_id: order.customer_id,
       items: order.items.map((it) => ({
-        product_id: it.product_id,
+        product_id: it.product.id,
+        product_label: `${it.product.name} (${it.product.sku_code})`,
         quantity: it.quantity,
         price: Number(it.price),
       })),
@@ -242,6 +247,7 @@ export default function OrdersPage() {
       if (action === "complete") await completeOrder(orderId);
       else if (action === "cancel") await cancelOrder(orderId);
       else await resetOrder(orderId);
+      setSheetOrder(null);
       loadOrders();
     } catch {
       alert(t("orders.actionError"));
@@ -294,6 +300,7 @@ export default function OrdersPage() {
                     value={it.product_id}
                     onChange={(v) => updateFormItem(f, setF, idx, "product_id", v === "" ? "" : String(v), errors, setErrors)}
                     fetchOptions={fetchProductOptions}
+                    displayValue={it.product_label}
                     placeholder={t("common.selectProduct")}
                     className={`input${errors[`item_${idx}_product`] ? " !border-red-400" : ""}`}
                   />
@@ -319,7 +326,7 @@ export default function OrdersPage() {
                   <button
                     type="button"
                     onClick={() => removeItem(f, setF, idx)}
-                    className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer transition-colors"
+                    className="icon-btn icon-btn-danger"
                     aria-label="Remove"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -334,13 +341,14 @@ export default function OrdersPage() {
         </div>
 
         <div className="flex justify-between items-center mt-3 pt-3 border-t border-bluegray-100">
-          <button
+          <Button
             type="button"
-            className="px-3 py-1.5 text-cyan-600 border border-cyan-200 rounded-xl text-sm font-medium hover:bg-cyan-50 cursor-pointer transition-colors"
+            variant="outline"
+            size="sm"
             onClick={() => addItem(f, setF)}
           >
             + {t("orders.addItem")}
-          </button>
+          </Button>
           <span className="text-sm font-semibold text-bluegray-700">
             {t("orders.totalAmount")}: {fmtMoney(calcTotal(f.items))}
           </span>
@@ -489,31 +497,38 @@ export default function OrdersPage() {
         <EmptyState title={t("orders.emptyList")} />
       ) : (
         <>
-          {/* Mobile: cards */}
+          {/* Mobile: cards (tap → action sheet) */}
           <div className="md:hidden">
             <ListCard>
               {visibleOrders.map((order) => {
                 const variant = statusVariant(order.status);
                 return (
-                  <ListRow
+                  <button
+                    type="button"
                     key={order.id}
-                    avatar={
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold ${statusAvatarCls(variant)}`}>
-                        #{order.id}
+                    onClick={() => setSheetOrder(order)}
+                    className="row w-full text-left"
+                  >
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0 ${statusAvatarCls(variant)}`}>
+                      #{order.id}
+                    </div>
+                    <div className="flex-1 min-w-0 flex flex-col gap-1">
+                      <div className="text-sm font-semibold text-bluegray-900 truncate">
+                        {order.customer?.full_name ?? "—"}
                       </div>
-                    }
-                    title={order.customer?.full_name ?? "—"}
-                    subtitle={
-                      <span className="flex items-center gap-2 flex-wrap">
-                        <span>{formatDate(order.order_date, i18n.language)}</span>
-                        <span>·</span>
-                        <span>{order.items.length} ta</span>
-                        <StatusPill variant={variant}>{statusLabel(order.status)}</StatusPill>
-                      </span>
-                    }
-                    metric={{ value: fmtMoney(order.total_amount), unit: "so'm" }}
-                    onClick={() => { if (order.status === OS.DRAFT) startEdit(order); }}
-                  />
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 flex-wrap text-xs text-bluegray-500 min-w-0">
+                          <span>{formatDate(order.order_date, i18n.language)}</span>
+                          <span>·</span>
+                          <span>{order.items.length} ta</span>
+                          <StatusPill variant={variant}>{statusLabel(order.status)}</StatusPill>
+                        </div>
+                        <span className="text-sm font-semibold text-bluegray-900 tabular-nums whitespace-nowrap flex-shrink-0">
+                          {fmtMoney(order.total_amount)} <span className="text-[10px] font-normal text-bluegray-500 uppercase">so'm</span>
+                        </span>
+                      </div>
+                    </div>
+                  </button>
                 );
               })}
             </ListCard>
@@ -538,14 +553,14 @@ export default function OrdersPage() {
                   {visibleOrders.map((order) => {
                     const variant = statusVariant(order.status);
                     return (
-                      <tr key={order.id}>
+                      <tr key={order.id} onClick={() => setSheetOrder(order)} style={{ cursor: "pointer" }}>
                         <td>#{order.id}</td>
                         <td>{formatDate(order.order_date, i18n.language)}</td>
                         <td>{order.customer?.full_name ?? "—"}</td>
                         <td>{order.items.length} ta</td>
                         <td className="num">{fmtMoney(order.total_amount)}</td>
                         <td><StatusPill variant={variant}>{statusLabel(order.status)}</StatusPill></td>
-                        <td>
+                        <td onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-1.5 flex-wrap">
                             {order.status === OS.DRAFT && (
                               <>
@@ -570,9 +585,9 @@ export default function OrdersPage() {
                                 </Button>
                               </>
                             )}
-                            {(order.status === OS.COMPLETED || order.status === OS.CANCELLED) && (
+                            {order.status === OS.COMPLETED && (
                               <Button
-                                variant="ghost"
+                                variant="danger"
                                 size="sm"
                                 disabled={actionId === order.id}
                                 onClick={() => handleAction(order.id, "reset")}
@@ -614,6 +629,78 @@ export default function OrdersPage() {
           </Button>
         </div>
       )}
+
+      {/* Mobile action sheet */}
+      <BottomSheet
+        open={sheetOrder !== null}
+        onClose={() => setSheetOrder(null)}
+        title={sheetOrder ? `#${sheetOrder.id} · ${sheetOrder.customer?.full_name ?? "—"}` : ""}
+      >
+        {sheetOrder && (
+          <div className="px-5 pb-6 flex flex-col gap-4">
+            <div className="flex items-center justify-between text-sm text-bluegray-600">
+              <span>{formatDate(sheetOrder.order_date, i18n.language)} · {sheetOrder.items.length} ta</span>
+              <StatusPill variant={statusVariant(sheetOrder.status)}>{statusLabel(sheetOrder.status)}</StatusPill>
+            </div>
+            <div className="text-2xl font-semibold tabular-nums text-bluegray-900">
+              {fmtMoney(sheetOrder.total_amount)} <span className="text-sm font-normal text-bluegray-500">so'm</span>
+            </div>
+
+            <div className="flex flex-col gap-1 border-t border-bluegray-100 pt-3">
+              <div className="text-[11px] font-semibold text-bluegray-500 uppercase tracking-wider mb-1">
+                {t("orders.itemsHeader")}
+              </div>
+              {sheetOrder.items.map((it) => {
+                const lineTotal = (Number(it.price) || 0) * it.quantity;
+                return (
+                  <div key={it.id} className="py-1.5">
+                    <div className="text-sm text-bluegray-800 truncate">{it.product.name}</div>
+                    <div className="text-xs text-bluegray-500 tabular-nums">
+                      {fmtNum(it.quantity)} × {fmtMoney(it.price)} = <span className="text-bluegray-900 font-medium">{fmtMoney(lineTotal)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {sheetOrder.status === OS.DRAFT && (
+              <div className="flex flex-col gap-2 pt-1">
+                <Button variant="warn" onClick={() => { const o = sheetOrder; setSheetOrder(null); startEdit(o); }}>
+                  {t("orders.editOrder")}
+                </Button>
+                <Button
+                  variant="success"
+                  disabled={actionId === sheetOrder.id}
+                  onClick={() => handleAction(sheetOrder.id, "complete")}
+                >
+                  {actionId === sheetOrder.id && actionType === "complete" ? t("orders.completing") : t("orders.complete")}
+                </Button>
+                <Button
+                  variant="danger"
+                  disabled={actionId === sheetOrder.id}
+                  onClick={() => handleAction(sheetOrder.id, "cancel")}
+                >
+                  {actionId === sheetOrder.id && actionType === "cancel" ? t("orders.cancelling") : t("orders.cancelOrder")}
+                </Button>
+              </div>
+            )}
+            {sheetOrder.status === OS.COMPLETED && (
+              <div className="flex flex-col gap-2 pt-1">
+                <Button
+                  variant="danger"
+                  disabled={actionId === sheetOrder.id}
+                  onClick={() => handleAction(sheetOrder.id, "reset")}
+                >
+                  {actionId === sheetOrder.id && actionType === "reset" ? t("orders.resetting") : t("orders.reset")}
+                </Button>
+              </div>
+            )}
+            <Button variant="outline" onClick={() => setSheetOrder(null)}>
+              {t("common.close", "Yopish")}
+            </Button>
+          </div>
+        )}
+      </BottomSheet>
     </div>
   );
 }

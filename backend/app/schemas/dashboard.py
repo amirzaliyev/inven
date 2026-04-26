@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 
 from pydantic import BaseModel
@@ -53,3 +54,28 @@ class DashboardResponse(BaseModel):
     revenue_this_month: Decimal
     payroll_stats: PayrollStats
     workforce: WorkforceStats
+
+
+class SalesProductSeries(BaseModel):
+    product_id: int
+    product_name: str
+    sku_code: str
+    quantity: list[int]
+    revenue: list[Decimal]
+
+
+class ProductionProductSeries(BaseModel):
+    product_id: int
+    product_name: str
+    sku_code: str
+    quantity: list[int]
+
+
+class TimeseriesResponse(BaseModel):
+    range_days: int
+    start_date: date
+    end_date: date
+    currency: str = settings.currency
+    dates: list[date]
+    sales: list[SalesProductSeries]
+    production: list[ProductionProductSeries]

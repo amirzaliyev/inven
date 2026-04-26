@@ -341,9 +341,9 @@ export default function SubdivisionsPage() {
                   </div>
 
                   <div className="flex items-center justify-end gap-1 pt-2 border-t border-bluegray-100">
-                    <Button
-                      variant="ghost"
-                      size="sm"
+                    <button
+                      type="button"
+                      className="icon-btn"
                       onClick={() => openMembers(s)}
                       title={t("subdivisions.members")}
                     >
@@ -360,12 +360,12 @@ export default function SubdivisionsPage() {
                           d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
                         />
                       </svg>
-                    </Button>
+                    </button>
                     {canWrite && (
                       <>
-                        <Button
-                          variant="ghost"
-                          size="sm"
+                        <button
+                          type="button"
+                          className="icon-btn"
                           onClick={() => startEdit(s)}
                           disabled={deletingId !== null}
                           title={t("common.edit")}
@@ -383,16 +383,16 @@ export default function SubdivisionsPage() {
                               d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                             />
                           </svg>
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-btn icon-btn-danger"
                           onClick={() => handleDelete(s)}
                           disabled={deletingId !== null}
                           title={t("common.delete")}
                         >
                           <svg
-                            className="w-4 h-4 text-red-500"
+                            className="w-4 h-4"
                             fill="none"
                             viewBox="0 0 24 24"
                             stroke="currentColor"
@@ -404,7 +404,7 @@ export default function SubdivisionsPage() {
                               d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                             />
                           </svg>
-                        </Button>
+                        </button>
                       </>
                     )}
                   </div>
@@ -665,9 +665,10 @@ export default function SubdivisionsPage() {
                     </span>
                     {canWrite && (
                       <button
+                        type="button"
                         onClick={() => handleRemoveMember(m)}
                         disabled={removingId === m.id}
-                        className="p-1 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer disabled:opacity-40"
+                        className="icon-btn icon-btn-danger"
                       >
                         <svg
                           className="w-4 h-4"

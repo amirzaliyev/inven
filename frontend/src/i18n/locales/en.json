@@ -12,6 +12,7 @@
     "delete": "Delete",
     "save": "Save",
     "cancel": "Cancel",
+    "close": "Close",
     "confirm": "Confirm",
     "yes": "Yes",
     "no": "No",
@@ -216,7 +217,15 @@
     "noProduction": "No production today.",
     "loadError": "Failed to load dashboard.",
     "lowStock": "Low Stock",
-    "outOf": "of"
+    "outOf": "of",
+    "salesTrend": "Sales",
+    "productionTrend": "Production",
+    "range7": "7d",
+    "range30": "30d",
+    "range90": "90d",
+    "noTrendData": "No data in this range.",
+    "viewQty": "Qty",
+    "viewRevenue": "Revenue"
   },
   "products": {
     "title": "Products",

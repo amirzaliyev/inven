@@ -8,11 +8,19 @@ from app.core.config import settings
 from app.models.enums import OrderStatus
 
 
+class Product(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    sku_code: str
+
+
 class OrderItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    product_id: int
+    product: Product
     quantity: int
     price: Decimal
 

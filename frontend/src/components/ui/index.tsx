@@ -194,6 +194,11 @@ export function BottomSheet({
     <>
       <div className={`sheet-scrim${open ? " open" : ""}`} onClick={onClose} />
       <div className={`sheet${open ? " open" : ""}`} role="dialog" aria-modal="true">
+        <button type="button" className="sheet-close" onClick={onClose} aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
         <div className="sheet-grabber" />
         {title && <h3 className="sheet-title">{title}</h3>}
         {children}

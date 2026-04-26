@@ -77,7 +77,7 @@ async def reset_order(
 @router.post("/{order_id}/cancel", response_model=Order)
 async def cancel_order(
     order_id: int,
-    _: UserContext = require_permission(Permission.ORDERS_WRITE),
+    user: UserContext = require_permission(Permission.ORDERS_WRITE),
     service: OrderService = Depends(get_order_service),
 ):
-    return await service.cancel_order(order_id=order_id)
+    return await service.cancel_order(order_id=order_id, user=user)

@@ -640,12 +640,12 @@ input, select, textarea, button {
   margin-bottom: 6px;
   display: block;
 }
-.field input,
+.field input:not([type="radio"]):not([type="checkbox"]),
 .field select,
 .field textarea {
   width: 100%;
 }
-.field input,
+.field input:not([type="radio"]):not([type="checkbox"]),
 .field select,
 .field textarea,
 .input {
@@ -666,16 +666,17 @@ input, select, textarea, button {
   padding: 12px 14px;
   resize: vertical;
 }
-.field input:focus,
+.field input:not([type="radio"]):not([type="checkbox"]):focus,
 .field select:focus,
 .field textarea:focus,
 .input:focus {
   border-color: var(--brand-600);
   box-shadow: 0 0 0 3px var(--brand-100);
 }
-.field input:disabled, .input:disabled { opacity: 0.55; cursor: not-allowed; }
+.field input:not([type="radio"]):not([type="checkbox"]):disabled,
+.input:disabled { opacity: 0.55; cursor: not-allowed; }
 .field-error { color: var(--danger); font-size: 12px; margin-top: 4px; }
-[data-theme="dark"] .field input:focus,
+[data-theme="dark"] .field input:not([type="radio"]):not([type="checkbox"]):focus,
 [data-theme="dark"] .field select:focus,
 [data-theme="dark"] .field textarea:focus,
 [data-theme="dark"] .input:focus {
@@ -750,6 +751,24 @@ input, select, textarea, button {
   border-radius: 2px;
   margin: 6px auto 16px;
 }
+.sheet-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-500);
+  border: 0;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+  z-index: 1;
+}
+.sheet-close:hover { background: var(--bg-sunken); color: var(--ink-900); }
 .sheet-title {
   font-size: 17px;
   font-weight: 600;
@@ -758,14 +777,19 @@ input, select, textarea, button {
 }
 @media (min-width: 768px) {
   .sheet {
-    max-width: 480px;
+    width: min(720px, calc(100vw - 48px));
+    max-width: none;
     left: 50%;
     right: auto;
-    transform: translate(-50%, 100%);
+    bottom: auto;
+    top: 50%;
+    transform: translate(-50%, calc(-50% + 24px));
+    opacity: 0;
     border-radius: var(--r-xl);
-    bottom: 24px;
+    padding: 16px 28px 32px;
+    transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 200ms ease;
   }
-  .sheet.open { transform: translate(-50%, 0); }
+  .sheet.open { transform: translate(-50%, -50%); opacity: 1; }
 }
 
 /* Segmented control */

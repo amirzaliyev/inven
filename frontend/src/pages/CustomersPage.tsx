@@ -355,25 +355,24 @@ export default function CustomersPage() {
                       {canWrite && (
                         <td>
                           <div className="flex justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
+                            <button
+                              type="button"
+                              className="icon-btn"
                               onClick={() => startEdit(c)}
                               disabled={deletingId !== null}
                               title={t("common.edit")}
                             >
                               {IconEdit}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
+                            </button>
+                            <button
+                              type="button"
+                              className="icon-btn icon-btn-danger"
                               onClick={() => handleDelete(c)}
                               disabled={deletingId !== null}
                               title={t("common.delete")}
-                              style={{ color: "var(--danger)" }}
                             >
                               {IconTrash}
-                            </Button>
+                            </button>
                           </div>
                         </td>
                       )}
@@ -570,10 +569,9 @@ export default function CustomersPage() {
             {editingCustomer && (
               <Button
                 type="button"
-                variant="ghost"
+                variant="danger"
                 onClick={() => editingCustomer && handleDelete(editingCustomer)}
                 disabled={editSubmitting || deletingId !== null}
-                style={{ color: "var(--danger)" }}
               >
                 {deletingId === editingId ? t("customers.deleting") : t("common.delete")}
               </Button>

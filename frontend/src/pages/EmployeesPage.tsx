@@ -397,7 +397,7 @@ export default function EmployeesPage() {
                             {canWriteEmployees && (
                               <>
                                 <Button
-                                  variant="outline"
+                                  variant="warn"
                                   size="sm"
                                   onClick={() => startEdit(emp)}
                                   disabled={deletingId !== null}
@@ -806,17 +806,46 @@ export default function EmployeesPage() {
             <p className="field-error bg-red-50 border border-red-200 rounded-xl px-3 py-2">{editErrors.api}</p>
           )}
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => { setEditingEmployee(null); setEditErrors({}); }}
-            >
-              {t("common.cancel")}
-            </Button>
-            <Button type="submit" disabled={editSubmitting}>
-              {t("common.save")}
-            </Button>
+          <div className="flex flex-wrap justify-between gap-2 pt-2">
+            <div className="flex gap-2 flex-wrap">
+              {editingEmployee?.user_id === null && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    if (!editingEmployee) return;
+                    setAttachEmployee(editingEmployee);
+                    setAttachState({ username: "", password: "", role: "employee" });
+                    setAttachError(null);
+                    setEditingEmployee(null);
+                  }}
+                >
+                  {t("employees.attachUser")}
+                </Button>
+              )}
+              {canDelete && editingEmployee && (
+                <Button
+                  type="button"
+                  variant="danger"
+                  onClick={() => editingEmployee && handleDelete(editingEmployee)}
+                  disabled={deletingId !== null}
+                >
+                  {deletingId === editingEmployee.id ? t("employees.deleting") : t("common.delete")}
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2 ml-auto">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => { setEditingEmployee(null); setEditErrors({}); }}
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button type="submit" disabled={editSubmitting}>
+                {t("common.save")}
+              </Button>
+            </div>
           </div>
         </form>
       </Modal>

@@ -250,11 +250,6 @@ export default function BatchesPage() {
     setSearchParams({ page: String(p), size: String(pageSize) });
   }
 
-  function onRowClick(batch: Batch) {
-    if (!canWriteBatches || batch.is_confirmed) return;
-    startEdit(batch);
-  }
-
   const hasBatches = batches.length > 0;
   const editingBatch = editingId !== null ? batches.find((b) => b.id === editingId) ?? null : null;
 
@@ -284,29 +279,32 @@ export default function BatchesPage() {
           />
         ) : (
           <ListCard>
-            {batches.map((batch) => (
-              <ListRow
-                key={batch.id}
-                avatar={
-                  <div className="text-cyan-600 bg-cyan-50 rounded-xl p-2 flex items-center justify-center">
-                    <FactoryIcon />
-                  </div>
-                }
-                title={batch.product_name ?? `#${batch.product_id}`}
-                subtitle={
-                  <span className="flex items-center gap-2 flex-wrap">
-                    <span>{formatDate(batch.batch_date, i18n.language)}</span>
-                    <span>·</span>
-                    <span>{batch.subdivision?.name ?? "—"}</span>
-                    <StatusPill variant={batch.is_confirmed ? "success" : "warn"}>
-                      {batch.is_confirmed ? t("batches.confirmed") : t("batches.pending")}
-                    </StatusPill>
-                  </span>
-                }
-                metric={{ value: batch.quantity.toLocaleString(), unit: "dona" }}
-                onClick={() => onRowClick(batch)}
-              />
-            ))}
+            {batches.map((batch) => {
+              const canEdit = !batch.is_confirmed && canWriteBatches;
+              return (
+                <ListRow
+                  key={batch.id}
+                  avatar={
+                    <div className="text-cyan-600 bg-cyan-50 rounded-xl p-2 flex items-center justify-center">
+                      <FactoryIcon />
+                    </div>
+                  }
+                  title={batch.product_name ?? `#${batch.product_id}`}
+                  subtitle={
+                    <span className="flex items-center gap-2 flex-wrap">
+                      <span>{formatDate(batch.batch_date, i18n.language)}</span>
+                      <span>·</span>
+                      <span>{batch.subdivision?.name ?? "—"}</span>
+                      <StatusPill variant={batch.is_confirmed ? "success" : "warn"}>
+                        {batch.is_confirmed ? t("batches.confirmed") : t("batches.pending")}
+                      </StatusPill>
+                    </span>
+                  }
+                  metric={{ value: batch.quantity.toLocaleString(), unit: "dona" }}
+                  onClick={canEdit ? () => startEdit(batch) : undefined}
+                />
+              );
+            })}
           </ListCard>
         )}
       </div>
@@ -354,16 +352,16 @@ export default function BatchesPage() {
                         <div className="flex gap-2 justify-end">
                           {canEdit && canWriteBatches && (
                             <>
+                              <Button size="sm" variant="warn" onClick={() => startEdit(batch)}>
+                                {t("common.edit")}
+                              </Button>
                               <Button
                                 size="sm"
-                                variant="primary"
+                                variant="success"
                                 onClick={() => handleConfirm(batch.id)}
                                 disabled={confirmingId === batch.id}
                               >
                                 {confirmingId === batch.id ? t("batches.confirming") : t("batches.confirm")}
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={() => startEdit(batch)}>
-                                {t("common.edit")}
                               </Button>
                             </>
                           )}
@@ -570,13 +568,25 @@ export default function BatchesPage() {
 
             {editErrors.api && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{editErrors.api}</p>}
 
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={cancelEdit} disabled={saving}>
-                {t("common.cancel")}
-              </Button>
-              <Button type="submit" disabled={saving}>
-                {saving ? t("common.saving") : t("common.save")}
-              </Button>
+            <div className="flex flex-wrap justify-between gap-2 pt-2">
+              {canWriteBatches && !editingBatch.is_confirmed && (
+                <Button
+                  type="button"
+                  variant="success"
+                  onClick={() => handleConfirm(editingBatch.id)}
+                  disabled={saving || confirmingId === editingBatch.id}
+                >
+                  {confirmingId === editingBatch.id ? t("batches.confirming") : t("batches.confirm")}
+                </Button>
+              )}
+              <div className="flex gap-2 ml-auto">
+                <Button type="button" variant="outline" onClick={cancelEdit} disabled={saving}>
+                  {t("common.cancel")}
+                </Button>
+                <Button type="submit" disabled={saving}>
+                  {saving ? t("common.saving") : t("common.save")}
+                </Button>
+              </div>
             </div>
           </form>
         )}

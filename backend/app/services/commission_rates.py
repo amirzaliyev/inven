@@ -12,12 +12,18 @@ from .base import BaseModelService
 class CommissionRateService(BaseModelService[ProductCommissionRate]):
     model = ProductCommissionRate
 
-    async def create(self, product_id: int, data: CommissionRateCreate) -> ProductCommissionRate:
+    async def create(
+        self, product_id: int, data: CommissionRateCreate
+    ) -> ProductCommissionRate:
         return await self._create({**data.model_dump(), "product_id": product_id})
 
-    async def update(self, rate_id: int, data: CommissionRateUpdate) -> ProductCommissionRate:
+    async def update(
+        self, rate_id: int, data: CommissionRateUpdate
+    ) -> ProductCommissionRate:
         rate = await self.get(id=rate_id)
-        return await self._update(rate, modified_data=data.model_dump(exclude_unset=True))
+        return await self._update(
+            rate, modified_data=data.model_dump(exclude_unset=True)
+        )
 
     async def list_for_product(
         self, product_id: int

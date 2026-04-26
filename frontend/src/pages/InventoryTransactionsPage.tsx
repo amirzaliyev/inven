@@ -297,7 +297,7 @@ export default function InventoryTransactionsPage() {
                     <th>{t("common.date")}</th>
                     <th>{t("transactions.typeHeader", "Turi")}</th>
                     <th>{t("transactions.sourceHeader", "Manba")}</th>
-                    <th>{t("transactions.linesSummary", "Mahsulotlar")}</th>
+                    <th>{t("nav.products")}</th>
                     <th className="num">{t("transactions.totalQty", "Jami")}</th>
                     <th></th>
                   </tr>
@@ -338,7 +338,7 @@ export default function InventoryTransactionsPage() {
                         </td>
                         <td className="num">{qty > 0 ? fmtNum(qty) : "—"}</td>
                         <td className="num">
-                          <Button variant="ghost" size="sm" onClick={() => setDetail(txn)}>
+                          <Button variant="outline" size="sm" onClick={() => setDetail(txn)}>
                             {t("common.view", "Ko'rish")}
                           </Button>
                         </td>
@@ -526,7 +526,7 @@ export default function InventoryTransactionsPage() {
                     type="button"
                     onClick={() => setDefectLines((prev) => prev.filter((_, j) => j !== i))}
                     disabled={defectLines.length === 1}
-                    className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer disabled:opacity-40 flex-shrink-0"
+                    className="icon-btn icon-btn-danger flex-shrink-0"
                     aria-label="Remove line"
                   >
                     <svg
@@ -549,13 +549,14 @@ export default function InventoryTransactionsPage() {
             ))}
           </div>
 
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => setDefectLines((prev) => [...prev, emptyLine()])}
-            className="px-4 py-2 text-cyan-600 border border-dashed border-cyan-300 rounded-xl text-sm cursor-pointer hover:bg-cyan-50"
           >
             {t("transactions.addLine")}
-          </button>
+          </Button>
 
           {defectErrors.api && (
             <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">

@@ -503,15 +503,15 @@ export default function UsersPage() {
                     {canWrite && (
                       <td>
                         <div className="flex gap-1 items-center">
-                          <Button variant="ghost" size="sm" onClick={() => startEdit(u)} disabled={deletingId !== null}>
+                          <Button variant="warn" size="sm" onClick={() => startEdit(u)} disabled={deletingId !== null}>
                             {t("common.edit")}
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => { setResetUser(u); setNewPassword(""); }} disabled={deletingId !== null}>
+                          <Button variant="outline" size="sm" onClick={() => { setResetUser(u); setNewPassword(""); }} disabled={deletingId !== null}>
                             {t("users.resetPassword")}
                           </Button>
                           {u.role !== "master_admin" && (
                             <Button
-                              variant="ghost"
+                              variant={u.is_active ? "danger" : "success"}
                               size="sm"
                               onClick={() => handleToggleStatus(u)}
                               disabled={deletingId !== null}

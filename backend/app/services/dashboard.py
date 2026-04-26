@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from sqlalchemy import case, func, select
@@ -24,11 +24,16 @@ from app.schemas.dashboard import (
     DashboardResponse,
     OrderStats,
     PayrollStats,
+    ProductionProductSeries,
     ProductStock,
+    SalesProductSeries,
+    TimeseriesResponse,
     TodayProduction,
     TodaySale,
     WorkforceStats,
 )
+
+ALLOWED_TIMESERIES_DAYS = (7, 30, 90)
 
 
 class DashboardService:
@@ -181,6 +186,125 @@ class DashboardService:
         ).where(Payroll.is_active == True)  # noqa: E712
         row = (await self._session.execute(stmt)).one()
         return PayrollStats(draft=row.draft, approved=row.approved, paid=row.paid)
+
+    async def get_timeseries(self, days: int) -> TimeseriesResponse:
+        if days not in ALLOWED_TIMESERIES_DAYS:
+            days = 30
+        end_date = date.today()
+        start_date = end_date - timedelta(days=days - 1)
+        dates = [start_date + timedelta(days=i) for i in range(days)]
+        date_index = {d: i for i, d in enumerate(dates)}
+
+        sales = await self._sales_timeseries(start_date, end_date, days, date_index)
+        production = await self._production_timeseries(start_date, end_date, days, date_index)
+
+        return TimeseriesResponse(
+            range_days=days,
+            start_date=start_date,
+            end_date=end_date,
+            dates=dates,
+            sales=sales,
+            production=production,
+        )
+
+    async def _sales_timeseries(
+        self,
+        start_date: date,
+        end_date: date,
+        days: int,
+        date_index: dict[date, int],
+    ) -> list[SalesProductSeries]:
+        stmt = (
+            select(
+                Product.id,
+                Product.name,
+                Product.sku_code,
+                Order.order_date,
+                func.sum(OrderItem.quantity).label("quantity"),
+                func.sum(OrderItem.quantity * OrderItem.price).label("revenue"),
+            )
+            .join(OrderItem, OrderItem.product_id == Product.id)
+            .join(Order, OrderItem.order_id == Order.id)
+            .where(
+                Order.is_active == True,  # noqa: E712
+                Order.status == OrderStatus.COMPLETED,
+                Order.order_date >= start_date,
+                Order.order_date <= end_date,
+            )
+            .group_by(Product.id, Product.name, Product.sku_code, Order.order_date)
+        )
+        rows = (await self._session.execute(stmt)).all()
+
+        per_product: dict[int, dict] = {}
+        for r in rows:
+            entry = per_product.setdefault(
+                r.id,
+                {
+                    "name": r.name,
+                    "sku": r.sku_code,
+                    "quantity": [0] * days,
+                    "revenue": [Decimal("0")] * days,
+                },
+            )
+            idx = date_index[r.order_date]
+            entry["quantity"][idx] = int(r.quantity or 0)
+            entry["revenue"][idx] = Decimal(r.revenue or 0)
+
+        return [
+            SalesProductSeries(
+                product_id=pid,
+                product_name=v["name"],
+                sku_code=v["sku"],
+                quantity=v["quantity"],
+                revenue=v["revenue"],
+            )
+            for pid, v in sorted(per_product.items(), key=lambda kv: kv[1]["name"])
+        ]
+
+    async def _production_timeseries(
+        self,
+        start_date: date,
+        end_date: date,
+        days: int,
+        date_index: dict[date, int],
+    ) -> list[ProductionProductSeries]:
+        stmt = (
+            select(
+                Product.id,
+                Product.name,
+                Product.sku_code,
+                Batch.batch_date,
+                func.sum(Batch.quantity).label("quantity"),
+            )
+            .join(Product, Batch.product_id == Product.id)
+            .where(
+                Batch.is_active == True,  # noqa: E712
+                Batch.is_confirmed == True,  # noqa: E712
+                Batch.batch_date >= start_date,
+                Batch.batch_date <= end_date,
+            )
+            .group_by(Product.id, Product.name, Product.sku_code, Batch.batch_date)
+        )
+        rows = (await self._session.execute(stmt)).all()
+
+        per_product: dict[int, dict] = {}
+        for r in rows:
+            entry = per_product.setdefault(
+                r.id,
+                {"name": r.name, "sku": r.sku_code, "quantity": [0] * days},
+            )
+            idx = date_index[r.batch_date]
+            entry["quantity"][idx] = int(r.quantity or 0)
+
+        return [
+            ProductionProductSeries(
+                product_id=pid,
+                product_name=v["name"],
+                sku_code=v["sku"],
+                quantity=v["quantity"],
+            )
+            for pid, v in sorted(per_product.items(), key=lambda kv: kv[1]["name"])
+        ]
 
     async def _workforce_stats(self) -> WorkforceStats:
         emp_stmt = select(
