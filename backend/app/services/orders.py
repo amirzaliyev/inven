@@ -37,6 +37,7 @@ class OrderService(BaseModelService[Order]):
                 selectinload(self.model.customer),
             )
             .where(self.model.id == order_id)
+            .execution_options(populate_existing=True)
         )
 
         order = (await self._session.scalars(stmt)).one_or_none()

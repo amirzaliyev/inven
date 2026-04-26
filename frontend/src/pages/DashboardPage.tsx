@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { getDashboard, getDashboardTimeseries } from "../api/dashboard";
-import LineChart, { ChartLegend, type LineChartSeries } from "../components/ui/LineChart";
+import TrendChart, { ChartLegend, type TrendChartSeries } from "../components/ui/TrendChart";
 import type { DashboardData, DashboardTimeseries, TimeseriesRange } from "../types";
 
 const fmtNum = (n: number) => Number(n).toLocaleString("en-US");
@@ -50,7 +50,7 @@ function RangePicker({
           type="button"
           className={`segmented-item ${value === r ? "active" : ""}`}
           onClick={() => onChange(r)}
-          style={{ padding: "0 12px", height: 28, fontSize: 12 }}
+          style={{ padding: "0 12px", height: 28, fontSize: 12, whiteSpace: "nowrap" }}
         >
           {t(labelKey[r])}
         </button>
@@ -73,7 +73,7 @@ function SalesChartCard({
   const { t } = useTranslation();
   const [metric, setMetric] = useState<"qty" | "revenue">("qty");
 
-  const series: LineChartSeries[] = data
+  const series: TrendChartSeries[] = data
     ? data.sales.map((s) => ({
         id: s.product_id,
         name: s.product_name,
@@ -96,7 +96,7 @@ function SalesChartCard({
               type="button"
               className={`segmented-item ${metric === "qty" ? "active" : ""}`}
               onClick={() => setMetric("qty")}
-              style={{ padding: "0 12px", height: 28, fontSize: 12 }}
+              style={{ padding: "0 12px", height: 28, fontSize: 12, whiteSpace: "nowrap" }}
             >
               {t("dashboard.viewQty")}
             </button>
@@ -104,7 +104,7 @@ function SalesChartCard({
               type="button"
               className={`segmented-item ${metric === "revenue" ? "active" : ""}`}
               onClick={() => setMetric("revenue")}
-              style={{ padding: "0 12px", height: 28, fontSize: 12 }}
+              style={{ padding: "0 12px", height: 28, fontSize: 12, whiteSpace: "nowrap" }}
             >
               {t("dashboard.viewRevenue")}
             </button>
@@ -116,7 +116,7 @@ function SalesChartCard({
         {loading || !data ? (
           <Skeleton className="h-[220px]" />
         ) : (
-          <LineChart
+          <TrendChart
             dates={data.dates}
             series={series}
             height={220}
@@ -143,7 +143,7 @@ function ProductionChartCard({
 }) {
   const { t } = useTranslation();
 
-  const series: LineChartSeries[] = data
+  const series: TrendChartSeries[] = data
     ? data.production.map((p) => ({
         id: p.product_id,
         name: p.product_name,
@@ -166,7 +166,7 @@ function ProductionChartCard({
         {loading || !data ? (
           <Skeleton className="h-[220px]" />
         ) : (
-          <LineChart
+          <TrendChart
             dates={data.dates}
             series={series}
             height={220}

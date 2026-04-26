@@ -9,7 +9,7 @@ export interface SelectOption {
 
 interface Props {
   value: number | "";
-  onChange: (value: number | "") => void;
+  onChange: (value: number | "", option?: SelectOption) => void;
   fetchOptions: (search: string) => Promise<SelectOption[]>;
   placeholder?: string;
   /** Label for the currently selected value — needed when the parent knows it */
@@ -83,7 +83,7 @@ export function AsyncSelect({
   }
 
   function handleSelect(opt: SelectOption) {
-    onChange(opt.value);
+    onChange(opt.value, opt);
     setOpen(false);
   }
 

@@ -220,9 +220,9 @@
     "outOf": "Jami",
     "salesTrend": "Sotuvlar",
     "productionTrend": "Ishlab chiqarish",
-    "range7": "7 kun",
-    "range30": "30 kun",
-    "range90": "90 kun",
+    "range7": "7k",
+    "range30": "30k",
+    "range90": "90k",
     "noTrendData": "Bu davrda ma'lumot yo'q.",
     "viewQty": "Miqdor",
     "viewRevenue": "Daromad"

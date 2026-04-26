@@ -269,6 +269,18 @@ export default function OrdersPage() {
     }
   }
 
+  function updateFormProduct(f: FormState, setF: (v: FormState) => void, idx: number, productId: number | "", productLabel: string | undefined, errors?: Record<string, string>, setErrors?: (v: Record<string, string>) => void) {
+    const items = f.items.map((it, i) =>
+      i === idx ? { ...it, product_id: productId, product_label: productLabel } : it,
+    );
+    setF({ ...f, items });
+    if (errors && setErrors && errors[`item_${idx}_product`]) {
+      const next = { ...errors };
+      delete next[`item_${idx}_product`];
+      setErrors(next);
+    }
+  }
+
   function addItem(f: FormState, setF: (v: FormState) => void) {
     setF({ ...f, items: [...f.items, emptyItem()] });
   }
@@ -294,10 +306,10 @@ export default function OrdersPage() {
           {f.items.map((it, idx) => (
             <div key={idx}>
               <div className="flex flex-wrap md:grid md:grid-cols-[1fr_6rem_6rem_1.75rem] gap-2 items-center">
-                <div className="w-full md:w-auto">
+                <div className="w-full min-w-0">
                   <AsyncSelect
                     value={it.product_id}
-                    onChange={(v) => updateFormItem(f, setF, idx, "product_id", v === "" ? "" : String(v), errors, setErrors)}
+                    onChange={(v, opt) => updateFormProduct(f, setF, idx, v, opt?.label, errors, setErrors)}
                     fetchOptions={fetchProductOptions}
                     displayValue={it.product_label}
                     placeholder={t("common.selectProduct")}
