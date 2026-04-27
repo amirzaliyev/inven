@@ -68,7 +68,7 @@ export default function InventoryTransactionsPage() {
   const pageSize = Number(searchParams.get("size")) || 10;
   const rawType = (searchParams.get("type") || "") as TransactionType | "";
   const typeFilter: FilterValue =
-    rawType === TransactionType.DEBIT ? "DEBIT" : rawType === TransactionType.CREDIT ? "CREDIT" : "ALL";
+    rawType === TransactionType.CREDIT ? "DEBIT" : rawType === TransactionType.DEBIT ? "CREDIT" : "ALL";
 
   const [txns, setTxns] = useState<InventoryTransaction[]>([]);
   const [listTotalPages, setListTotalPages] = useState(1);
@@ -88,7 +88,7 @@ export default function InventoryTransactionsPage() {
   }
 
   const setTypeFilter = (v: FilterValue) => {
-    const apiVal = v === "DEBIT" ? TransactionType.DEBIT : v === "CREDIT" ? TransactionType.CREDIT : "";
+    const apiVal = v === "DEBIT" ? TransactionType.CREDIT : v === "CREDIT" ? TransactionType.DEBIT : "";
     updateParams({ type: String(apiVal), page: "1" });
   };
 
@@ -208,7 +208,7 @@ export default function InventoryTransactionsPage() {
   const creditTint = { background: "#fee2e2", color: "#991b1b" };
 
   return (
-    <div className="max-w-5xl mx-auto w-full">
+    <div className="flex flex-col h-full min-h-0 w-full">
       <PageHead
         title={t("transactions.title", "Ombor operatsiyalari")}
         subtitle={t("transactions.subtitle", `${listTotal} ${t("transactions.records", "ta yozuv")}`)}
@@ -227,6 +227,7 @@ export default function InventoryTransactionsPage() {
         />
       </div>
 
+      <div className="flex-1 min-h-0 overflow-auto">
       {listLoading ? (
         <ListCard>
           <p className="px-5 py-10 text-center text-sm text-bluegray-400">{t("common.loading")}</p>
@@ -242,7 +243,7 @@ export default function InventoryTransactionsPage() {
           <div className="md:hidden">
             <ListCard>
               {txns.map((txn) => {
-                const isIn = txn.transaction_type === TransactionType.DEBIT;
+                const isIn = txn.transaction_type === TransactionType.CREDIT;
                 const lc = txnLineCount(txn);
                 const qty = txnTotalQty(txn);
                 return (
@@ -304,7 +305,7 @@ export default function InventoryTransactionsPage() {
                 </thead>
                 <tbody>
                   {txns.map((txn) => {
-                    const isIn = txn.transaction_type === TransactionType.DEBIT;
+                    const isIn = txn.transaction_type === TransactionType.CREDIT;
                     const lc = txnLineCount(txn);
                     const qty = txnTotalQty(txn);
                     return (
@@ -350,45 +351,50 @@ export default function InventoryTransactionsPage() {
             </ListCard>
           </div>
 
-          {/* Pagination */}
-          <div className="flex items-center justify-between gap-2 flex-wrap mt-4 text-sm text-bluegray-500">
-            <span className="text-xs">{t("common.pageOf", { page: listPage, total: listTotalPages })}</span>
-            <div className="flex items-center gap-2">
-              <label className="hidden md:flex text-xs text-bluegray-500 items-center gap-1">
-                {t("common.perPage")}
-                <select
-                  value={pageSize}
-                  onChange={(e) => updateParams({ page: "1", size: e.target.value })}
-                  className="ml-1 px-2 py-1 border border-bluegray-200 rounded-lg text-xs bg-white outline-none"
-                >
-                  {[10, 20, 50, 100].map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => updateParams({ page: String(listPage - 1) })}
-                disabled={listPage <= 1}
-              >
-                <span className="md:hidden">&larr;</span>
-                <span className="hidden md:inline">&larr; {t("common.previous")}</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => updateParams({ page: String(listPage + 1) })}
-                disabled={listPage >= listTotalPages}
-              >
-                <span className="md:hidden">&rarr;</span>
-                <span className="hidden md:inline">{t("common.next")} &rarr;</span>
-              </Button>
-            </div>
-          </div>
         </>
+      )}
+      </div>
+
+      {!listLoading && txns.length > 0 && (
+        <div className="flex items-center justify-between gap-2 flex-wrap mt-4 text-sm text-bluegray-500 flex-shrink-0">
+          <span className="text-xs">
+            {t("common.pageOf", { page: listPage, total: Math.max(1, listTotalPages) })} · {listTotal}
+          </span>
+          <div className="flex items-center gap-2">
+            <label className="hidden md:flex text-xs text-bluegray-500 items-center gap-1">
+              {t("common.perPage")}
+              <select
+                value={pageSize}
+                onChange={(e) => updateParams({ page: "1", size: e.target.value })}
+                className="ml-1 px-2 py-1 border border-bluegray-200 rounded-lg text-xs bg-white outline-none"
+              >
+                {[10, 20, 50, 100].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => updateParams({ page: String(listPage - 1) })}
+              disabled={listPage <= 1 || listLoading}
+            >
+              <span className="md:hidden">&larr;</span>
+              <span className="hidden md:inline">&larr; {t("common.previous")}</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => updateParams({ page: String(listPage + 1) })}
+              disabled={listPage >= listTotalPages || listLoading}
+            >
+              <span className="md:hidden">&rarr;</span>
+              <span className="hidden md:inline">{t("common.next")} &rarr;</span>
+            </Button>
+          </div>
+        </div>
       )}
 
       {/* Detail modal */}
@@ -413,10 +419,10 @@ export default function InventoryTransactionsPage() {
                   borderRadius: 999,
                   fontSize: 12,
                   fontWeight: 600,
-                  ...(detail.transaction_type === TransactionType.DEBIT ? debitTint : creditTint),
+                  ...(detail.transaction_type === TransactionType.CREDIT ? debitTint : creditTint),
                 }}
               >
-                {detail.transaction_type === TransactionType.DEBIT
+                {detail.transaction_type === TransactionType.CREDIT
                   ? t("transactions.in", "Kirim")
                   : t("transactions.out", "Chiqim")}
               </span>

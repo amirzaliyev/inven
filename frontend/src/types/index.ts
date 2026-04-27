@@ -101,13 +101,22 @@ export interface InventoryTransactionCreate {
   lines: ITransactionLineCreate[];
 }
 
+export interface InventoryTransactionLine {
+  id: number;
+  product_id: number;
+  product_name: string | null;
+  quantity: number;
+}
+
 export interface InventoryTransaction {
   id: number;
   transaction_date: string;
   transaction_type: TransactionType;
   source_type: SourceType;
   source_id: number;
-  lines: Array<{ product_id: number; quantity: number }>;
+  note: string | null;
+  total_quantity: number;
+  lines: InventoryTransactionLine[];
 }
 
 export interface InventoryTransactionList {

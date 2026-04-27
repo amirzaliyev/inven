@@ -60,7 +60,7 @@ class OrderList(BaseModel):
 class OrderItemCreate(BaseModel):
     product_id: int
     quantity: int = Field(ge=1)
-    price: Decimal = Field(gt=0)
+    price: Decimal = Field(ge=0)
 
 
 class OrderCreate(BaseModel):

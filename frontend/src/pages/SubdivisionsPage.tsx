@@ -39,7 +39,7 @@ export default function SubdivisionsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createDesc, setCreateDesc] = useState("");
-  const [createEmployeeIds, setCreateEmployeeIds] = useState<number[]>([]);
+  const [createMembers, setCreateMembers] = useState<SelectOption[]>([]);
   const [createSubmitting, setCreateSubmitting] = useState(false);
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
 
@@ -113,15 +113,15 @@ export default function SubdivisionsPage() {
         description: createDesc.trim() || null,
       });
       // Add selected employees as members
-      for (const empId of createEmployeeIds) {
+      for (const m of createMembers) {
         try {
-          await addMember(created.id, { employee_id: empId });
+          await addMember(created.id, { employee_id: m.value });
         } catch { /* skip duplicates */ }
       }
       toast("success", t("subdivisions.createSuccess", { name: created.name }));
       setCreateName("");
       setCreateDesc("");
-      setCreateEmployeeIds([]);
+      setCreateMembers([]);
       setShowCreateModal(false);
       fetchSubdivisions();
     } catch (err: unknown) {
@@ -445,7 +445,7 @@ export default function SubdivisionsPage() {
           setShowCreateModal(false);
           setCreateName("");
           setCreateDesc("");
-          setCreateEmployeeIds([]);
+          setCreateMembers([]);
           setCreateErrors({});
         }}
         title={t("subdivisions.addNew")}
@@ -495,19 +495,19 @@ export default function SubdivisionsPage() {
             <label className="field-label">
               {t("subdivisions.members")}
             </label>
-            {createEmployeeIds.length > 0 && (
+            {createMembers.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-2">
-                {createEmployeeIds.map((id) => (
+                {createMembers.map((m) => (
                   <span
-                    key={id}
+                    key={m.value}
                     className="inline-flex items-center gap-1 bg-cyan-50 text-cyan-700 text-xs font-medium px-2 py-1 rounded-lg"
                   >
-                    #{id}
+                    {m.label}
                     <button
                       type="button"
                       onClick={() =>
-                        setCreateEmployeeIds((prev) =>
-                          prev.filter((x) => x !== id)
+                        setCreateMembers((prev) =>
+                          prev.filter((x) => x.value !== m.value)
                         )}
                       className="text-cyan-400 hover:text-cyan-700 cursor-pointer"
                     >
@@ -531,14 +531,14 @@ export default function SubdivisionsPage() {
             )}
             <AsyncSelect
               value=""
-              onChange={(v) => {
+              onChange={(v, opt) => {
                 if (
-                  v !== "" && !createEmployeeIds.includes(v)
-                ) setCreateEmployeeIds((prev) => [...prev, v]);
+                  v !== "" && opt && !createMembers.some((m) => m.value === v)
+                ) setCreateMembers((prev) => [...prev, opt]);
               }}
               fetchOptions={async (search) => {
                 const opts = await fetchEmployeeOptions(search);
-                return opts.filter((o) => !createEmployeeIds.includes(o.value));
+                return opts.filter((o) => !createMembers.some((m) => m.value === o.value));
               }}
               placeholder={t("subdivisions.selectEmployee")}
               className="input"
@@ -559,7 +559,7 @@ export default function SubdivisionsPage() {
                 setShowCreateModal(false);
                 setCreateName("");
                 setCreateDesc("");
-                setCreateEmployeeIds([]);
+                setCreateMembers([]);
                 setCreateErrors({});
               }}
             >

@@ -490,10 +490,11 @@ export default function BatchesPage() {
             <input
               id="quantity"
               type="number"
-              value={form.quantity}
+              value={form.quantity || ""}
               min={1}
               required
-              onChange={(e) => { setForm((f) => ({ ...f, quantity: Number(e.target.value) })); setCreateErrors((er) => { const { quantity: _q, ...rest } = er; return rest; }); }}
+              onFocus={(e) => e.currentTarget.select()}
+              onChange={(e) => { setForm((f) => ({ ...f, quantity: e.target.value === "" ? 0 : Number(e.target.value) })); setCreateErrors((er) => { const { quantity: _q, ...rest } = er; return rest; }); }}
               className={`input ${createErrors.quantity ? "!border-red-400" : ""}`}
             />
             <p className="text-xs text-red-600 min-h-4">{createErrors.quantity ?? " "}</p>
@@ -549,6 +550,7 @@ export default function BatchesPage() {
                 type="number"
                 value={editState.quantity}
                 min={1}
+                onFocus={(e) => e.currentTarget.select()}
                 onChange={(e) => { setEditState((s) => ({ ...s, quantity: e.target.value })); setEditErrors((er) => { const { quantity: _q, ...rest } = er; return rest; }); }}
                 className={`input ${editErrors.quantity ? "!border-red-400" : ""}`}
               />

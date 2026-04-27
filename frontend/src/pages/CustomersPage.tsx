@@ -68,6 +68,7 @@ export default function CustomersPage() {
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -85,7 +86,7 @@ export default function CustomersPage() {
   const fetchCustomers = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await listCustomers(page, 10, search || undefined);
+      const result = await listCustomers(page, pageSize, search || undefined);
       setCustomers(result.items);
       setTotalPages(result.pages);
       setTotal(result.total);
@@ -95,7 +96,7 @@ export default function CustomersPage() {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search, t]);
+  }, [page, pageSize, search, t]);
 
   useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
 
@@ -383,30 +384,44 @@ export default function CustomersPage() {
             </div>
           )}
 
-          {!loading && customers.length > 0 && totalPages > 1 && (
+          {!loading && customers.length > 0 && (
             <div
-              className="flex items-center justify-between px-5 py-3"
+              className="flex items-center justify-between gap-2 flex-wrap px-5 py-3 text-sm text-bluegray-500"
               style={{ borderTop: "1px solid var(--line)" }}
             >
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                ← {t("common.previous")}
-              </Button>
-              <span className="text-xs text-bluegray-500">
-                {t("common.pageOf", { page, total: totalPages })}
+              <span className="text-xs">
+                {t("common.pageOf", { page, total: Math.max(1, totalPages) })} · {total}
               </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                {t("common.next")} →
-              </Button>
+              <div className="flex items-center gap-2">
+                <label className="hidden md:flex text-xs text-bluegray-500 items-center gap-1">
+                  {t("common.perPage")}
+                  <select
+                    value={pageSize}
+                    onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+                    className="ml-1 px-2 py-1 border border-bluegray-200 rounded-lg text-xs bg-white outline-none"
+                  >
+                    {[10, 20, 50, 100].map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  ← {t("common.previous")}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  {t("common.next")} →
+                </Button>
+              </div>
             </div>
           )}
         </ListCard>

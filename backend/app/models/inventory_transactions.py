@@ -1,10 +1,14 @@
 from datetime import date
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Date, Enum, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import BaseModel
 from .enums import SourceType, TransactionType
+
+if TYPE_CHECKING:
+    from .products import Product
 
 
 class InventoryTransaction(BaseModel):
@@ -46,3 +50,4 @@ class InventoryTransactionLine(BaseModel):
     transaction: Mapped["InventoryTransaction"] = relationship(
         "InventoryTransaction", back_populates="lines"
     )
+    product: Mapped["Product"] = relationship("Product", lazy="joined")

@@ -46,6 +46,7 @@ interface FormState {
 
 const emptyItem = (): FormItem => ({ product_id: "", quantity: "", price: "" });
 const todayStr = () => new Date().toISOString().slice(0, 10);
+const emptyForm = (): FormState => ({ order_date: todayStr(), customer_id: "", items: [emptyItem()] });
 
 function statusVariant(status: OrderStatus): StatusVariant {
   switch (status) {
@@ -76,13 +77,13 @@ export default function OrdersPage() {
   // Permissions: keep simple — assume write enabled (matches previous behavior, no AuthContext gate present in original)
   const canWriteOrders = true;
 
-  const [form, setForm] = useState<FormState>({ order_date: todayStr(), customer_id: "", items: [emptyItem()] });
+  const [form, setForm] = useState<FormState>(emptyForm());
   const [creating, setCreating] = useState(false);
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const [editId, setEditId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<FormState>({ order_date: todayStr(), customer_id: "", items: [emptyItem()] });
+  const [editForm, setEditForm] = useState<FormState>(emptyForm());
   const [editCustomerName, setEditCustomerName] = useState("");
   const [saving, setSaving] = useState(false);
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
@@ -91,7 +92,7 @@ export default function OrdersPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
-  const SIZE = 15;
+  const [pageSize, setPageSize] = useState(15);
   const [loadingList, setLoadingList] = useState(false);
 
   const [filterCustomer, setFilterCustomer] = useState<number | "">("");
@@ -118,7 +119,7 @@ export default function OrdersPage() {
     try {
       const res = await listOrders({
         page: pg,
-        size: SIZE,
+        size: pageSize,
         customer_id: filterCustomer || undefined,
         date_from: filterDateFrom || undefined,
         date_to: filterDateTo || undefined,
@@ -131,7 +132,7 @@ export default function OrdersPage() {
     } finally {
       setLoadingList(false);
     }
-  }, [page, filterCustomer, filterDateFrom, filterDateTo, t]);
+  }, [page, pageSize, filterCustomer, filterDateFrom, filterDateTo, t]);
 
   useEffect(() => { loadOrders(); }, [loadOrders]);
 
@@ -155,13 +156,13 @@ export default function OrdersPage() {
       const n = i + 1;
       if (!f.items[i].product_id) errs[`item_${i}_product`] = t("orders.validationItemProduct", { n });
       if (!f.items[i].quantity || Number(f.items[i].quantity) < 1) errs[`item_${i}_qty`] = t("orders.validationItemQty", { n });
-      if (!f.items[i].price || Number(f.items[i].price) <= 0) errs[`item_${i}_price`] = t("orders.validationItemPrice", { n });
+      if (f.items[i].price === "" || Number(f.items[i].price) < 0) errs[`item_${i}_price`] = t("orders.validationItemPrice", { n });
     }
     return errs;
   }
 
   function openCreate() {
-    setForm({ order_date: todayStr(), customer_id: "", items: [emptyItem()] });
+    setForm(emptyForm());
     setCreateErrors({});
     setShowCreateModal(true);
   }
@@ -183,7 +184,7 @@ export default function OrdersPage() {
       };
       const created = await createOrder(payload);
       toast("success", t("orders.createSuccess", { id: created.id }));
-      setForm({ order_date: todayStr(), customer_id: "", items: [emptyItem()] });
+      setForm(emptyForm());
       setShowCreateModal(false);
       setPage(1);
       loadOrders(1);
@@ -230,7 +231,8 @@ export default function OrdersPage() {
       setEditId(null);
       loadOrders();
     } catch {
-      setEditErrors({ api: t("orders.updateError") });
+      setEditId(null);
+      toast("error", t("orders.updateError"));
     } finally {
       setSaving(false);
     }
@@ -296,17 +298,12 @@ export default function OrdersPage() {
   function renderItemsForm(f: FormState, setF: (v: FormState) => void, errors: Record<string, string>, setErrors: (v: Record<string, string>) => void) {
     return (
       <div className="mt-3">
-        <div className="hidden md:grid grid-cols-[1fr_6rem_6rem_1.75rem] gap-2 mb-1 px-0.5">
-          <span className="text-xs font-semibold text-bluegray-400 uppercase tracking-wider">{t("common.product")}</span>
-          <span className="text-xs font-semibold text-bluegray-400 uppercase tracking-wider">{t("common.quantity")}</span>
-          <span className="text-xs font-semibold text-bluegray-400 uppercase tracking-wider">{t("orders.price")}</span>
-          <span />
-        </div>
-        <div className="space-y-2">
+        <div className="space-y-3">
           {f.items.map((it, idx) => (
             <div key={idx}>
-              <div className="flex flex-wrap md:grid md:grid-cols-[1fr_6rem_6rem_1.75rem] gap-2 items-center">
-                <div className="w-full min-w-0">
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="flex-[2] min-w-[10rem]">
+                  <label className="field-label">{t("common.product")}</label>
                   <AsyncSelect
                     value={it.product_id}
                     onChange={(v, opt) => updateFormProduct(f, setF, idx, v, opt?.label, errors, setErrors)}
@@ -316,37 +313,46 @@ export default function OrdersPage() {
                     className={`input${errors[`item_${idx}_product`] ? " !border-red-400" : ""}`}
                   />
                 </div>
-                <input
-                  type="number"
-                  min={1}
-                  value={it.quantity}
-                  onChange={(e) => updateFormItem(f, setF, idx, "quantity", e.target.value, errors, setErrors)}
-                  placeholder={t("common.quantity")}
-                  className={`input flex-1 md:flex-none md:w-full min-w-0${errors[`item_${idx}_qty`] ? " !border-red-400" : ""}`}
-                />
-                <input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={it.price}
-                  onChange={(e) => updateFormItem(f, setF, idx, "price", e.target.value, errors, setErrors)}
-                  placeholder={t("orders.price")}
-                  className={`input flex-1 md:flex-none md:w-full min-w-0${errors[`item_${idx}_price`] ? " !border-red-400" : ""}`}
-                />
-                {f.items.length > 1 ? (
-                  <button
-                    type="button"
-                    onClick={() => removeItem(f, setF, idx)}
-                    className="icon-btn icon-btn-danger"
-                    aria-label="Remove"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                ) : <span />}
+                <div className="flex-1 min-w-[5rem]">
+                  <label className="field-label">{t("common.quantity")}</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={it.quantity}
+                    onFocus={(e) => e.currentTarget.select()}
+                    onChange={(e) => updateFormItem(f, setF, idx, "quantity", e.target.value, errors, setErrors)}
+                    placeholder={t("common.quantity")}
+                    className={`input w-full${errors[`item_${idx}_qty`] ? " !border-red-400" : ""}`}
+                  />
+                </div>
+                <div className="flex-1 min-w-[5rem]">
+                  <label className="field-label">{t("orders.price")}</label>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={it.price}
+                    onFocus={(e) => e.currentTarget.select()}
+                    onChange={(e) => updateFormItem(f, setF, idx, "price", e.target.value, errors, setErrors)}
+                    placeholder={t("orders.price")}
+                    className={`input w-full${errors[`item_${idx}_price`] ? " !border-red-400" : ""}`}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeItem(f, setF, idx)}
+                  disabled={f.items.length <= 1}
+                  className="icon-btn icon-btn-danger flex-shrink-0 mb-[6px]"
+                  aria-label="Remove"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
               </div>
-              <p className="text-xs text-red-500 min-h-4">{errors[`item_${idx}_product`] || errors[`item_${idx}_qty`] || errors[`item_${idx}_price`] || " "}</p>
+              {(errors[`item_${idx}_product`] || errors[`item_${idx}_qty`] || errors[`item_${idx}_price`]) && (
+                <p className="text-xs text-red-500 mt-1">{errors[`item_${idx}_product`] || errors[`item_${idx}_qty`] || errors[`item_${idx}_price`]}</p>
+              )}
             </div>
           ))}
         </div>
@@ -369,7 +375,7 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto w-full">
+    <div className="flex flex-col h-full min-h-0 w-full">
       <PageHead
         title={t("orders.title")}
         subtitle={t("orders.subtitle")}
@@ -415,7 +421,7 @@ export default function OrdersPage() {
       {/* Create modal */}
       <Modal
         open={showCreateModal}
-        onClose={() => { setShowCreateModal(false); setCreateErrors({}); setForm({ order_date: todayStr(), customer_id: "", items: [emptyItem()] }); }}
+        onClose={() => { setShowCreateModal(false); setCreateErrors({}); setForm(emptyForm()); }}
         title={t("orders.newOrder")}
         size="lg"
       >
@@ -445,7 +451,7 @@ export default function OrdersPage() {
           {renderItemsForm(form, setForm, createErrors, setCreateErrors)}
           {createErrors.api && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{createErrors.api}</p>}
           <div className="flex justify-end gap-2 pt-4 border-t border-bluegray-100">
-            <Button variant="outline" onClick={() => { setShowCreateModal(false); setCreateErrors({}); setForm({ order_date: todayStr(), customer_id: "", items: [emptyItem()] }); }}>
+            <Button variant="outline" onClick={() => { setShowCreateModal(false); setCreateErrors({}); setForm(emptyForm()); }}>
               {t("orders.cancelEdit")}
             </Button>
             <Button disabled={creating} onClick={handleCreate}>
@@ -499,7 +505,8 @@ export default function OrdersPage() {
         </div>
       </Modal>
 
-      {/* List */}
+      {/* List — fills remaining space and scrolls */}
+      <div className="flex-1 min-h-0 overflow-auto">
       {loadingList ? (
         <ListCard>
           <div className="px-5 py-10 text-center text-sm text-bluegray-400">{t("common.loading")}</div>
@@ -548,7 +555,7 @@ export default function OrdersPage() {
           {/* Desktop: table */}
           <div className="hidden md:block">
             <ListCard>
-              <table className="data-table">
+              <table className="data-table w-full">
                 <thead>
                   <tr>
                     <th>{t("common.id")}</th>
@@ -618,26 +625,44 @@ export default function OrdersPage() {
         </>
       )}
 
-      {/* Pagination */}
-      {pages > 1 && (
-        <div className="flex items-center justify-between gap-2 mt-4 text-sm text-bluegray-500">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            ← {t("common.previous")}
-          </Button>
-          <span className="text-xs">{t("common.pageOf", { page, total: pages })}</span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page >= pages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            {t("common.next")} →
-          </Button>
+      </div>
+
+      {/* Pagination — pinned below the scrollable list */}
+      {visibleOrders.length > 0 && (
+        <div className="flex items-center justify-between gap-2 flex-wrap mt-4 text-sm text-bluegray-500 flex-shrink-0">
+          <span className="text-xs">
+            {t("common.pageOf", { page, total: Math.max(1, pages) })} · {total}
+          </span>
+          <div className="flex items-center gap-2">
+            <label className="hidden md:flex text-xs text-bluegray-500 items-center gap-1">
+              {t("common.perPage")}
+              <select
+                value={pageSize}
+                onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+                className="ml-1 px-2 py-1 border border-bluegray-200 rounded-lg text-xs bg-white outline-none"
+              >
+                {[10, 20, 50, 100].map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </label>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1 || loadingList}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              ← {t("common.previous")}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= pages || loadingList}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              {t("common.next")} →
+            </Button>
+          </div>
         </div>
       )}
 

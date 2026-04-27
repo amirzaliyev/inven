@@ -132,7 +132,7 @@ class OrderService(BaseModelService[Order]):
             .options(selectinload(self.model.items).selectinload(OrderItem.product))
             .offset((page - 1) * size)
             .limit(size)
-            .order_by(self.model.order_date.desc())
+            .order_by(self.model.order_date.desc(), self.model.updated_at.desc())
         )
         total_cnt = select(func.count()).select_from(self.model).where(*conditions)
 

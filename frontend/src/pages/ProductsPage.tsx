@@ -28,8 +28,9 @@ export default function ProductsPage() {
 
   const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
   const [totalPages, setTotalPages] = useState(1);
-  const [, setTotal] = useState(0);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -66,7 +67,7 @@ export default function ProductsPage() {
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await listProducts(page, 10, search || undefined);
+      const result = await listProducts(page, pageSize, search || undefined);
       setProducts(result.items);
       setTotalPages(result.pages);
       setTotal(result.total);
@@ -75,7 +76,7 @@ export default function ProductsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, t]);
+  }, [page, pageSize, search, t]);
 
   useEffect(() => {
     fetchProducts();
@@ -234,7 +235,7 @@ export default function ProductsPage() {
   );
 
   return (
-    <div className="max-w-5xl mx-auto w-full">
+    <div className="flex flex-col h-full min-h-0 w-full">
       <PageHead
         title={t("products.title")}
         subtitle={t("products.subtitle")}
@@ -245,6 +246,7 @@ export default function ProductsPage() {
         <Searchbar value={searchInput} onChange={setSearchInput} placeholder={t("products.searchPlaceholder")} />
       </div>
 
+      <div className="flex-1 min-h-0 overflow-auto">
       {loading ? (
         <ListCard>
           <div className="px-5 py-10 text-center text-sm text-bluegray-400">{t("common.loading")}</div>
@@ -351,20 +353,36 @@ export default function ProductsPage() {
             </ListCard>
           </div>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between gap-2 mt-4">
-              <span className="text-sm text-bluegray-500">{t("common.pageOf", { page, total: totalPages })}</span>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => setPage((p) => p - 1)} disabled={page <= 1}>
-                  {t("common.previous")}
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)} disabled={page >= totalPages}>
-                  {t("common.next")}
-                </Button>
-              </div>
-            </div>
-          )}
         </>
+      )}
+      </div>
+
+      {!loading && products.length > 0 && (
+        <div className="flex items-center justify-between gap-2 flex-wrap mt-4 text-sm text-bluegray-500 flex-shrink-0">
+          <span className="text-xs">
+            {t("common.pageOf", { page, total: Math.max(1, totalPages) })} · {total}
+          </span>
+          <div className="flex items-center gap-2">
+            <label className="hidden md:flex text-xs text-bluegray-500 items-center gap-1">
+              {t("common.perPage")}
+              <select
+                value={pageSize}
+                onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+                className="ml-1 px-2 py-1 border border-bluegray-200 rounded-lg text-xs bg-white outline-none"
+              >
+                {[10, 20, 50, 100].map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </label>
+            <Button variant="outline" size="sm" onClick={() => setPage((p) => p - 1)} disabled={page <= 1 || loading}>
+              ← {t("common.previous")}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)} disabled={page >= totalPages || loading}>
+              {t("common.next")} →
+            </Button>
+          </div>
+        </div>
       )}
 
       {/* Create modal */}

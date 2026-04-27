@@ -3,6 +3,7 @@ from datetime import date
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.enums import SourceType, TransactionType
 from app.models.inventory_transactions import (
@@ -85,13 +86,14 @@ class InventoryTransactionService(BaseModelService[InventoryTransaction]):
         stmt = (
             select(self.model)
             .where(*conditions)
+            .options(selectinload(self.model.lines).joinedload(InventoryTransactionLine.product))
             .offset(offset)
             .limit(size)
             .order_by(self.model.transaction_date.desc(), self.model.id.desc())
         )
         total_cnt = select(func.count()).select_from(self.model).where(*conditions)
 
-        txns = (await self._session.scalars(stmt)).all()
+        txns = (await self._session.scalars(stmt)).unique().all()
         total = await self._session.scalar(total_cnt) or 0
 
         return txns, total

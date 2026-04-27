@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 class Order(BaseModel):
     __tablename__ = "orders"
     __table_args__ = (
-        CheckConstraint("total_amount>0", name="ck_orders_positive_total_amount"),
+        CheckConstraint("total_amount>=0", name="ck_orders_positive_total_amount"),
     )
 
     status: Mapped[OrderStatus] = mapped_column(
@@ -54,7 +54,7 @@ class Order(BaseModel):
 class OrderItem(BaseModel):
     __tablename__ = "order_items"
     __table_args__ = (
-        CheckConstraint("price>0", name="ck_order_items_positive_price"),
+        CheckConstraint("price>=0", name="ck_order_items_positive_price"),
         CheckConstraint("quantity>=1", name="ck_order_items_positive_quantity"),
     )
 

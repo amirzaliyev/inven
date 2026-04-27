@@ -39,19 +39,23 @@ export function AsyncSelect({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   // Keep fetchOptions stable inside effects without requiring parent to memoize
   const fetchRef = useRef(fetchOptions);
   fetchRef.current = fetchOptions;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+  const [highlight, setHighlight] = useState(0);
 
   async function doFetch(q: string) {
     setLoading(true);
     try {
       const results = await fetchRef.current(q);
       setOptions(results);
+      setHighlight(0);
     } catch {
       setOptions([]);
+      setHighlight(0);
     } finally {
       setLoading(false);
     }
@@ -113,6 +117,33 @@ export function AsyncSelect({
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
 
+  // Scroll highlighted option into view
+  useEffect(() => {
+    if (!open) return;
+    optionRefs.current[highlight]?.scrollIntoView({ block: "nearest" });
+  }, [highlight, open]);
+
+  function onSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (loading) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (options.length > 0) setHighlight((h) => (h + 1) % options.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (options.length > 0) setHighlight((h) => (h - 1 + options.length) % options.length);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const opt = options[highlight];
+      if (opt) handleSelect(opt);
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setHighlight(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setHighlight(Math.max(0, options.length - 1));
+    }
+  }
+
   // Derive label for current value from loaded options if displayValue not given
   const selectedLabel =
     displayValue ??
@@ -164,6 +195,7 @@ export function AsyncSelect({
               type="text"
               value={search}
               onChange={(e) => handleSearch(e.target.value)}
+              onKeyDown={onSearchKeyDown}
               placeholder={t("common.search") + "..."}
               className="w-full px-3 py-1.5 text-sm border border-bluegray-200 rounded-xl outline-none focus:border-cyan-400 bg-white"
             />
@@ -176,20 +208,28 @@ export function AsyncSelect({
             ) : options.length === 0 ? (
               <div className="px-3 py-5 text-center text-xs text-bluegray-400">{t("common.noResults")}</div>
             ) : (
-              options.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => handleSelect(opt)}
-                  className={`w-full px-4 py-2 text-left text-sm cursor-pointer transition-colors ${
-                    opt.value === value
-                      ? "bg-cyan-50 text-cyan-700 font-medium"
-                      : "text-bluegray-700 hover:bg-bluegray-50"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))
+              options.map((opt, idx) => {
+                const isSelected = opt.value === value;
+                const isHighlighted = idx === highlight;
+                return (
+                  <button
+                    key={opt.value}
+                    ref={(el) => { optionRefs.current[idx] = el; }}
+                    type="button"
+                    onClick={() => handleSelect(opt)}
+                    onMouseEnter={() => setHighlight(idx)}
+                    className={`w-full px-4 py-2 text-left text-sm cursor-pointer transition-colors ${
+                      isSelected
+                        ? "bg-cyan-50 text-cyan-700 font-medium"
+                        : isHighlighted
+                        ? "bg-bluegray-50 text-bluegray-900"
+                        : "text-bluegray-700 hover:bg-bluegray-50"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })
             )}
           </div>
         </div>,
